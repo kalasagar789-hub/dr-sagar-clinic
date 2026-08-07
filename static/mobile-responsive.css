@@ -1,0 +1,98 @@
+/* Phone-first refinements shared by every clinic workspace. Desktop layout is unchanged. */
+@media (max-width: 760px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { min-width: 0; overflow-x: hidden; font-size: 15px; }
+
+  body > aside,
+  aside.admin-persistent-nav {
+    position: static !important;
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 14px !important;
+    border-right: 0 !important;
+  }
+  aside .brand { font-size: 20px; }
+  aside .brand b { font-size: 27px; }
+  aside .role { margin: 12px 4px 10px; }
+  aside nav { display: flex; gap: 7px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: thin; }
+  aside nav a { flex: 0 0 auto; margin: 0; min-height: 42px; padding: 11px 12px; font-size: 13px; }
+
+  main,
+  main.staff-shell,
+  main:has(.lab-page),
+  main:has(.inventory-page),
+  body:has(.admin-persistent-nav) main:has(.lab-page),
+  body:has(.admin-persistent-nav) main:has(.inventory-page) {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    padding: 18px 14px !important;
+  }
+  header { gap: 10px; margin-bottom: 16px; }
+  h1 { font-size: 23px; }
+  h2 { font-size: 18px; }
+  header span { font-size: 13px; line-height: 1.45; }
+
+  .metrics,
+  .kpi-grid,
+  .appointment-kpis,
+  .lab-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .metric,
+  .card,
+  .panel,
+  .lab-card { padding: 15px !important; border-radius: 12px; }
+  .metric b { font-size: 24px; }
+  .grid,
+  .form-grid,
+  .rx-row,
+  .consult-shell,
+  .diet-shell,
+  .pharm-grid,
+  .po-layout { grid-template-columns: 1fr !important; }
+
+  input,
+  select,
+  textarea { min-height: 44px; font-size: 16px; }
+  textarea { min-height: 96px; }
+  button,
+  .button,
+  .primary-btn,
+  .secondary-btn { min-height: 44px; font-size: 14px; }
+  .card-head,
+  .panel-heading,
+  .appointment-actions,
+  .pharmacy-actions { flex-wrap: wrap; }
+
+  main table { display: block; width: 100%; min-width: 620px; overflow-x: auto; white-space: nowrap; }
+  .table-wrap,
+  .result-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .result-table-wrap .result-table { display: table; }
+
+  .pharmacy-workspace { margin: -18px -14px !important; padding: 15px !important; }
+  .pharmacy-hero { padding: 18px !important; }
+  .pharmacy-hero h2 { font-size: 22px; }
+  .pharmacy-actions > * { flex: 1 1 170px; text-align: center; }
+  .stock-form { display: grid !important; grid-template-columns: 1fr !important; padding: 15px !important; }
+
+  .lab-workspace { grid-template-columns: 1fr !important; }
+  .lab-patient-summary { position: static !important; }
+  .lab-progress { overflow-x: auto; gap: 34px; padding: 16px 12px 30px; }
+  .lab-progress li { flex: 0 0 25px; }
+  .lab-tabs, .pharmacy-tabs { overflow-x: auto; white-space: nowrap; }
+
+  .modal-content,
+  .appointment-modal > section,
+  .patient-switcher { width: calc(100vw - 24px) !important; max-height: calc(100vh - 24px); overflow-y: auto; }
+}
+
+@media (max-width: 430px) {
+  .metrics,
+  .kpi-grid,
+  .appointment-kpis,
+  .lab-kpis { grid-template-columns: 1fr !important; }
+  .welcome { padding: 17px !important; }
+  .welcome h2 { font-size: 21px !important; }
+  .lab-top-actions, .staff-profile { width: 100%; justify-content: space-between; }
+  .lab-top-brand span, .staff-brand span { font-size: 15px; }
+  .print { margin: 0; padding: 16px; }
+}

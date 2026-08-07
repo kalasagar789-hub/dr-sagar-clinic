@@ -1,5 +1,11 @@
 /* Adds the session CSRF token without altering any existing form or module UI. */
 (() => {
+  if (!document.querySelector('link[href*="mobile-responsive.css"]')) {
+    const mobileTheme = document.createElement('link');
+    mobileTheme.rel = 'stylesheet';
+    mobileTheme.href = '/static/mobile-responsive.css?v=20260808';
+    document.head.append(mobileTheme);
+  }
   if (['/forgot-password', '/reset-password'].includes(location.pathname) && !document.querySelector('link[href*="reset-theme.css"]')) {
     const theme = document.createElement('link');
     theme.rel = 'stylesheet'; theme.href = '/static/reset-theme.css?v=20260807';
