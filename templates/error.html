@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section style="max-width:620px;margin:10vh auto;padding:42px;background:#fff;border:1px solid #dbe7ee;border-radius:18px;box-shadow:0 18px 50px #153d5a14;text-align:center">
+  <p style="margin:0;color:#159b91;font-size:14px;font-weight:800;letter-spacing:.08em">DR. SAGAR'S CLINIC</p>
+  <h2 style="margin:14px 0 10px;color:#123a5a;font-size:30px">{{ code }} · {{ title }}</h2>
+  <p style="margin:0 0 28px;color:#607488;font-size:16px;line-height:1.6">{{ message }}</p>
+  <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}" style="display:inline-block;padding:12px 19px;border-radius:9px;background:linear-gradient(90deg,#159c91,#176ed0);color:#fff;text-decoration:none;font-weight:800">Return safely</a>
+</section>
+{% endblock %}

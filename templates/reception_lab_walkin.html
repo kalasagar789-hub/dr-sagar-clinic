@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Lab walk-in registration{% endblock %}
+{% block content %}
+<section class="walkin-page">
+  <header class="walkin-hero">
+    <div>
+      <p>RECEPTION DESK · LABORATORY</p>
+      <h2>Walk-in laboratory registration</h2>
+      <span>Register patients who need lab tests only. This does not create a doctor appointment.</span>
+    </div>
+    <a href="{{ url_for('appointments') }}">← Back to Reception Desk</a>
+  </header>
+
+  <section class="walkin-card">
+    <div class="walkin-notice"><b>Laboratory-only flow</b><span>Registration → laboratory queue → sample collection → result entry → verification → report.</span></div>
+    <form method="post" action="{{ url_for('appointments') }}" class="walkin-form">
+      <input type="hidden" name="booking_type" value="lab_only">
+      <fieldset class="source-choice"><legend>Patient source</legend><label><input type="radio" name="lab_patient_source" value="new" checked> Register new walk-in patient</label><label><input type="radio" name="lab_patient_source" value="existing"> Select registered patient</label></fieldset>
+
+      <section class="lab-new-fields patient-grid">
+        <label class="wide">Patient full name *<input name="lab_patient_name" required placeholder="e.g. Ramesh Kumar"></label>
+        <label>Age<input name="lab_patient_age" type="number" min="0" max="120" placeholder="Optional"></label>
+        <label>Gender<select name="lab_patient_gender"><option>Female</option><option>Male</option><option>Other</option></select></label>
+        <label>DOB<input name="lab_patient_dob" type="date"></label>
+        <label>Blood group<select name="lab_patient_blood_group"><option value="">Not known</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select></label>
+        <label>Phone number *<input name="lab_patient_phone" required inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></label>
+        <label>Email<input name="lab_patient_email" type="email" placeholder="Optional"></label>
+        <label class="wide">Address<input name="lab_patient_address" placeholder="Optional"></label>
+        <label class="wide">Clinical note<input name="lab_patient_notes" placeholder="Fasting status, symptoms, or relevant note"></label>
+      </section>
+
+      <section class="lab-existing-fields" hidden><label>Registered patient<select name="lab_existing_patient_id" disabled>{% for p in patients %}<option value="{{ p.id }}">{{ p.user.name }} · {{ p.mrn }} · {{ p.user.phone or 'No mobile' }}</option>{% endfor %}</select></label></section>
+
+      <section class="test-picker"><div><h3>Select laboratory test(s)</h3><p>Choose one or more tests from the approved laboratory database.</p></div><select name="lab_test_name" multiple size="10" required>{% for service in lab_services %}<option value="{{ service.name }}">{{ service.name }} — ₹{{ '%.0f'|format(service.fee) }}</option>{% endfor %}</select><small>Tip: Hold Ctrl while selecting multiple tests.</small></section>
+      <button type="submit">Register patient & send selected tests to laboratory</button>
+    </form>
+  </section>
+</section>
+<style>
+.walkin-page{max-width:1030px;margin:auto}.walkin-hero{display:flex!important;justify-content:space-between!important;align-items:center!important;padding:25px 28px;border-radius:16px;background:linear-gradient(108deg,#0c5f95,#119d91);color:#fff}.walkin-hero p{margin:0;font-size:11px;font-weight:800;letter-spacing:.1em;color:#c9fcf5}.walkin-hero h2{margin:8px 0;font-size:26px}.walkin-hero span{font-size:13px;color:#e3fbf8}.walkin-hero a{padding:10px 13px;border:1px solid #b8eee7;border-radius:8px;color:#fff;text-decoration:none;font-size:12px;font-weight:800}.walkin-card{margin-top:18px;padding:22px;background:#fff;border:1px solid #dbe9ea;border-radius:15px;box-shadow:0 9px 25px #17435a0c}.walkin-notice{display:grid;gap:4px;padding:14px 16px;border:1px solid #bde5de;border-radius:10px;background:#f1fbf8;color:#1a625f}.walkin-notice b{font-size:14px}.walkin-notice span{font-size:12px}.walkin-form{display:grid;gap:17px;margin-top:20px}.source-choice{display:flex;gap:24px;padding:13px 15px;border:1px solid #d7e8ed;border-radius:10px;background:#f7fbfc;color:#32586d;font-size:13px;font-weight:700}.source-choice legend{padding:0 5px;color:#0b837a;font-size:12px;font-weight:800}.source-choice label{display:flex;align-items:center;gap:7px}.patient-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.patient-grid label,.lab-existing-fields label{display:grid;gap:6px;color:#426276;font-size:12px;font-weight:800}.patient-grid .wide{grid-column:span 2}.walkin-form input,.walkin-form select{min-height:43px;padding:10px 11px;border:1px solid #cbdde5;border-radius:8px;background:#fff;color:#1e4057;font:14px Arial}.test-picker{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;align-items:start;padding:17px;border:1px solid #cce8e3;border-radius:11px;background:linear-gradient(100deg,#f3fffc,#f3f9ff)}.test-picker h3{margin:0;color:#146c70;font-size:16px}.test-picker p,.test-picker small{margin:6px 0 0;color:#698394;font-size:12px;line-height:1.5}.test-picker select{grid-column:2;min-height:220px}.test-picker small{grid-column:2}.walkin-form button{justify-self:start;border:0;border-radius:9px;padding:13px 18px;background:linear-gradient(90deg,#079485,#176dcc);color:#fff;font-size:14px;font-weight:800;cursor:pointer}@media(max-width:750px){.walkin-hero{display:block!important}.walkin-hero a{display:inline-block;margin-top:15px}.source-choice,.patient-grid,.test-picker{grid-template-columns:1fr}.source-choice{display:grid;gap:9px}.patient-grid .wide,.test-picker select,.test-picker small{grid-column:auto}}
+</style>
+<script>
+(() => { const radios = document.querySelectorAll('input[name="lab_patient_source"]'); const fresh = document.querySelector('.lab-new-fields'); const existing = document.querySelector('.lab-existing-fields'); const sync = () => { const useExisting = document.querySelector('input[name="lab_patient_source"]:checked').value === 'existing'; fresh.hidden = useExisting; existing.hidden = !useExisting; fresh.querySelectorAll('input,select').forEach(item => { item.disabled = useExisting; item.required = !useExisting && item.name === 'lab_patient_name' || !useExisting && item.name === 'lab_patient_phone'; }); existing.querySelector('select').disabled = !useExisting; }; radios.forEach(radio => radio.addEventListener('change', sync)); sync(); })();
+</script>
+{% endblock %}

@@ -1,0 +1,52 @@
+(() => {
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  if (requestedTab) document.querySelector(`[data-diet-tab="${requestedTab}"]`)?.click();
+  const assessment = document.querySelector('[data-diet-pane="assessment"]');
+  if (assessment && !document.querySelector('.anthro-calculator')) {
+    const height = assessment.querySelector('[name="height_cm"]');
+    const weight = assessment.querySelector('[name="weight_kg"]');
+    const card = document.createElement('section');
+    card.className = 'anthro-calculator';
+    card.innerHTML = '<div class="anthro-title"><small>CLINICAL ANTHROPOMETRY CALCULATOR</small><h4>BMI, BMR & daily energy target</h4><p>Uses the Mifflin–St Jeor equation and activity multiplier. Dietician confirmation is required.</p></div><div class="anthro-grid"><div class="anthro-inputs"><label>Body weight (kg)<input class="calc-weight" type="number" step=".1" placeholder="e.g. 76.5"></label><label>Height (cm)<input class="calc-height" type="number" step=".1" placeholder="e.g. 172"></label><div class="calc-two"><label>Age (years)<input class="calc-age" type="number" min="1" max="120" value="35"></label><label>Sex<select class="calc-sex"><option value="female">Female</option><option value="male">Male</option></select></label></div><label>Physical activity level<select class="calc-activity"><option value="1.2">Sedentary — little exercise</option><option value="1.375">Light exercise — 1–3 days/week</option><option value="1.55" selected>Moderate exercise — 3–5 days/week</option><option value="1.725">Very active — 6–7 days/week</option><option value="1.9">Extra active — physical work</option></select></label></div><div class="anthro-results"><div><span>Calculated BMI</span><b class="calc-bmi">—</b><small class="calc-bmi-label">Enter measurements</small></div><div><span>Basal metabolic rate (BMR)</span><b class="calc-bmr">—</b><small>kcal/day</small></div><div><span>Total daily energy expenditure (TDEE)</span><b class="calc-tdee">—</b><small class="calc-target">Suggested weight-loss target: —</small></div><button type="button" class="use-target">Use suggested target</button></div></div>';
+    assessment.querySelector('h3').insertAdjacentElement('afterend', card);
+    const get = selector => card.querySelector(selector);
+    const fields = ['.calc-weight','.calc-height','.calc-age','.calc-sex','.calc-activity'].map(get);
+    get('.calc-weight').value = weight?.value || ''; get('.calc-height').value = height?.value || '';
+    const update = () => {
+      const kg = Number(get('.calc-weight').value), cm = Number(get('.calc-height').value), age = Number(get('.calc-age').value), multiplier = Number(get('.calc-activity').value); const sex = get('.calc-sex').value;
+      if (!kg || !cm || !age) return;
+      const bmi = kg / ((cm / 100) ** 2); const bmr = 10 * kg + 6.25 * cm - 5 * age + (sex === 'male' ? 5 : -161); const tdee = Math.round(bmr * multiplier); const target = Math.max(1200, tdee - 500);
+      get('.calc-bmi').textContent = bmi.toFixed(1); get('.calc-bmr').textContent = Math.round(bmr).toLocaleString(); get('.calc-tdee').textContent = tdee.toLocaleString(); get('.calc-target').textContent = `Suggested gradual weight-loss target: ${target.toLocaleString()} kcal/day`;
+      get('.calc-bmi-label').textContent = bmi < 18.5 ? 'Below healthy range' : bmi < 25 ? 'Healthy range' : bmi < 30 ? 'Above healthy range' : 'High BMI — dietician review';
+      card.dataset.ready = 'true'; card.dataset.target = target; card.dataset.protein = Math.round(kg * 1.1);
+    };
+    fields.forEach(field => field.addEventListener('input', update));
+    [height, weight].forEach(field => field?.addEventListener('input', () => { get('.calc-height').value = height.value; get('.calc-weight').value = weight.value; update(); }));
+    get('.use-target').addEventListener('click', () => { if (!card.dataset.ready) return; const calories = document.querySelector('[name="calorie_target"]'); const protein = document.querySelector('[name="protein_target"]'); if (calories) calories.value = card.dataset.target; if (protein) protein.value = card.dataset.protein; document.querySelector('[data-diet-tab="targets"]')?.click(); });
+    update();
+  }
+  const plan = document.querySelector('[data-diet-pane="plan"]');
+  if (plan && !document.querySelector('.diet-template-picker')) {
+    const form = plan.querySelector('form[action], form');
+    if (form) {
+      const picker = document.createElement('section'); picker.className = 'diet-template-picker';
+      picker.innerHTML = '<b>Plan setup</b><p>Choose a reviewed template and plan duration before generating an AI draft.</p><div class="plan-setup-grid"><label>Clinical template<select name="plan_template"><option value="Weight management">Weight management</option><option value="Diabetes-friendly">Diabetes-friendly</option><option value="Hypertension / low sodium">Hypertension / low sodium</option><option value="PCOS lifestyle">PCOS lifestyle</option><option value="Thyroid support">Thyroid support</option><option value="High-protein">High-protein</option><option value="Telugu home-food">Telugu home-food</option></select></label><label>Plan duration<select name="plan_duration"><option value="1">1 day</option><option value="7">7 days</option><option value="30">1 month (30 days)</option></select></label></div>';
+      form.insertBefore(picker, form.querySelector('button'));
+      const manual = document.createElement('section'); manual.className = 'manual-plan-builder';
+      manual.innerHTML = '<div><b>Create manual plan</b><p>Choose approved foods for each daily meal. The dietician remains in control.</p></div><form method="post"><input type="hidden" name="action" value="create_manual_plan"><input type="hidden" name="patient_id" value="' + (window.DIET_PATIENT_ID || '') + '"><label>Duration<select name="plan_duration"><option value="1">1 day</option><option value="7">7 days</option><option value="30">1 month (30 days)</option></select></label><div class="manual-foods">Loading approved foods…</div><button type="submit">Create manual diet-plan draft</button></form>';
+      plan.querySelector('.plan-actions')?.before(manual);
+      fetch('/api/dietician/foods').then(response => response.json()).then(data => { const names = ['Early morning','Breakfast','Mid-morning','Lunch','Evening snack','Dinner']; manual.querySelector('.manual-foods').innerHTML = names.map((name, index) => `<label>${name}<select name="manual_food_id"><option value="">Choose approved food</option>${data.foods.map(food => `<option value="${food.id}" ${index === 0 ? 'selected' : ''}>${food.name} · ${food.serving}</option>`).join('')}</select></label>`).join(''); });
+    }
+    const rows = [...plan.querySelectorAll('.meal-row')];
+    if (rows.length && !plan.querySelector('.diet-plan-overview')) {
+      const meta = window.DIET_PLAN_META || {}; const calories = Number(meta.calories) || 0; const protein = Number(meta.protein) || 0;
+      const overview = document.createElement('section'); overview.className = 'diet-plan-overview';
+      overview.innerHTML = `<div class="routine-heading"><div><small>PERSONALISED NUTRITION PLAN</small><h4>${meta.title || 'Assigned meal routine'}</h4></div><span>Dietician review required</span></div><div class="routine-targets"><article class="calorie"><span>Target calories</span><b>${calories || '—'} kcal</b></article><article class="protein"><span>Protein</span><b>${protein || '—'} g</b></article><article class="carbs"><span>Carbohydrates · edit</span><b>${meta.carbs || (calories ? Math.round(calories * .45 / 4) : '—')} g</b></article><article class="fat"><span>Healthy fats · edit</span><b>${meta.fats || (calories ? Math.round(calories * .25 / 9) : '—')} g</b></article><article class="water"><span>Hydration</span><b>${meta.hydration || '2.5 L / day'}</b></article></div><section class="routine-meals"><b>Assigned meal routine</b><div class="routine-grid"></div></section><section class="routine-rules"><b>Dietician clinical rules & instructions</b><p>${meta.instructions || 'Review the plan with the dietician and follow meal timings, hydration and activity guidance.'}</p><ul><li>Use the approved meal timing and portions; substitutions require dietician review.</li><li>Contact the clinic for food allergy symptoms, dizziness, or medication-related concerns.</li></ul></section>`;
+      rows[0].before(overview); const grid = overview.querySelector('.routine-grid'); rows.forEach(row => grid.append(row));
+      const editable = [overview.querySelector('.carbs b'), overview.querySelector('.fat b')];
+      editable.forEach((value, index) => { value.contentEditable = 'true'; value.classList.add('editable-macro'); value.title = 'Click to edit this target'; value.addEventListener('blur', () => { if (!window.DIET_PLAN_ID) return; const carbs = Number(overview.querySelector('.carbs b').textContent.replace(/[^0-9.]/g, '')); const fats = Number(overview.querySelector('.fat b').textContent.replace(/[^0-9.]/g, '')); fetch(`/api/dietician/plan/${window.DIET_PLAN_ID}/macros`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({carbohydrates:carbs, fats:fats, hydration:meta.hydration || '2.5 L/day'})}); }); });
+    }
+    if (rows.length > 6) { const days = Math.ceil(rows.length / 6); const switcher = document.createElement('select'); switcher.className = 'meal-day-switcher'; switcher.innerHTML = Array.from({length:days}, (_, index) => `<option value="${index}">Day ${index + 1}</option>`).join(''); plan.querySelector('h3')?.insertAdjacentElement('afterend', switcher); const heading = document.createElement('div'); heading.className = 'routine-day-title'; switcher.insertAdjacentElement('afterend', heading); const showDay = () => { const selected = Number(switcher.value); heading.textContent = `Day ${selected + 1} meal routine`; rows.forEach((row, index) => { const visible = Math.floor(index / 6) === selected; row.hidden = !visible; row.classList.toggle('day-hidden', !visible); }); }; switcher.addEventListener('change', showDay); showDay(); }
+    if (window.DIET_PLAN_ID) { const actions = document.createElement('div'); actions.className = 'diet-preview-actions'; actions.innerHTML = `<a href="/dietician/plan/${window.DIET_PLAN_ID}/print" target="_blank">Preview diet plan</a><a href="/dietician/plan/${window.DIET_PLAN_ID}/print" target="_blank">Print / Download PDF</a>`; plan.querySelector('.plan-actions')?.prepend(actions); }
+  }
+})();

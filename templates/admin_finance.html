@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Finance & Payroll{% endblock %}
+{% block content %}
+<section class="finance-page">
+  <header class="finance-hero">
+    <div><small>ADMINISTRATION · FINANCE CONTROL</small><h2>Revenue, expenses & payroll</h2><p>Review service collections, record operating expenses and manage staff payroll in one secure workspace.</p></div>
+    <a href="{{ url_for('admin') }}">← Administration overview</a>
+  </header>
+  <form class="date-filter" method="get">
+    <label>From<input type="date" name="start" value="{{ start.isoformat() }}"></label>
+    <label>To<input type="date" name="end" value="{{ end.isoformat() }}"></label>
+    <button type="submit">Apply dates</button>
+    <a href="{{ url_for('admin_finance_export', start=start.isoformat(), end=end.isoformat(), type='all') }}">⇩ Export CSV</a>
+  </form>
+  <section class="finance-kpis">
+    <article><span>Paid revenue</span><b>₹{{ '%.2f'|format(metrics.revenue) }}</b><small>{{ start.strftime('%d %b %Y') }} – {{ end.strftime('%d %b %Y') }}</small></article>
+    <article class="expense"><span>Operating expenses</span><b>₹{{ '%.2f'|format(metrics.expenses) }}</b><small>Recorded expenses in selected period</small></article>
+    <article class="payroll"><span>Paid payroll</span><b>₹{{ '%.2f'|format(metrics.payroll) }}</b><small>Only records marked Paid</small></article>
+    <article class="net"><span>Net operating balance</span><b>₹{{ '%.2f'|format(metrics.net) }}</b><small>Revenue − expenses − paid payroll</small></article>
+  </section>
+  <section class="finance-ai-card">
+    <div><small>FREE LOCAL AI</small><h3>Finance analyst</h3><p>Turn this period’s recorded revenue, expenses and payroll into clear operational alerts.</p></div>
+    <button type="button" id="finance-ai-button">Generate insights</button>
+    <div id="finance-ai-output" hidden aria-live="polite"></div>
+  </section>
+  <section class="finance-grid">
+    <article class="finance-card revenue-card"><div class="finance-head"><div><h3>Revenue by service</h3><p>Paid invoices grouped by service or billing category.</p></div><a href="{{ url_for('admin_finance_export', start=start.isoformat(), end=end.isoformat(), type='revenue') }}">Export revenue</a></div>
+      <div class="revenue-list">{% for category, amount in revenue_rows %}<div><span>{{ category }}</span><b>₹{{ '%.2f'|format(amount) }}</b><i style="width:{{ ((amount / metrics.revenue * 100) if metrics.revenue else 0)|round(0) }}%"></i></div>{% else %}<p class="finance-empty">No paid revenue for this period.</p>{% endfor %}</div>
+    </article>
+    <article class="finance-card"><div class="finance-head"><div><h3>Add expense</h3><p>Record rent, utilities, supplies and other clinic costs.</p></div></div>
+      <form method="post" class="entry-form"><input type="hidden" name="action" value="expense"><div class="two-col"><label>Date<input type="date" name="expense_date" value="{{ today.isoformat() }}" required></label><label>Category<select name="category" required><option value="">Select category</option><option>Rent</option><option>Utilities</option><option>Laboratory supplies</option><option>Pharmacy procurement</option><option>Equipment</option><option>Marketing</option><option>Maintenance</option><option>Other</option></select></label></div><label>Description<input name="description" maxlength="250" required placeholder="e.g. Monthly electricity bill"></label><div class="two-col"><label>Vendor / payee<input name="vendor" maxlength="120" placeholder="Optional"></label><label>Amount (₹)<input name="amount" min="0.01" step="0.01" type="number" required></label></div><label>Payment mode<select name="payment_mode"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option><option>Cheque</option></select></label><button>Save expense</button></form>
+    </article>
+  </section>
+  <section class="finance-grid payroll-grid">
+    <article class="finance-card"><div class="finance-head"><div><h3>Payroll entry</h3><p>Create or update one employee’s monthly payroll record.</p></div></div>
+      <form method="post" class="entry-form"><input type="hidden" name="action" value="payroll"><div class="two-col"><label>Employee<select name="employee_id" required><option value="">Select staff member</option>{% for user in staff %}<option value="{{ user.id }}">{{ user.name }} · {{ user.role|title }}</option>{% endfor %}</select></label><label>Pay month<input type="month" name="pay_period" value="{{ today.strftime('%Y-%m') }}" required></label></div><div class="three-col"><label>Base salary (₹)<input type="number" name="base_salary" min="0" step="0.01" required></label><label>Allowances (₹)<input type="number" name="allowances" value="0" min="0" step="0.01"></label><label>Deductions (₹)<input type="number" name="deductions" value="0" min="0" step="0.01"></label></div><div class="two-col"><label>Status<select name="status"><option>Draft</option><option>Approved</option><option>Paid</option></select></label><label>Paid date<input type="date" name="paid_on"></label></div><label>Note<input name="note" maxlength="250" placeholder="Optional payroll note"></label><button>Save payroll</button></form>
+    </article>
+    <article class="finance-card"><div class="finance-head"><div><h3>Payroll register</h3><p>Selected-period payroll records.</p></div><a href="{{ url_for('admin_finance_export', start=start.isoformat(), end=end.isoformat(), type='payroll') }}">Export payroll</a></div>
+      <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Month</th><th>Net pay</th><th>Status</th></tr></thead><tbody>{% for item in payroll %}<tr><td><b>{{ item.employee.name }}</b><small>{{ item.employee.role|title }}</small></td><td>{{ item.pay_period }}</td><td>₹{{ '%.2f'|format(item.net_pay) }}</td><td><span class="status {{ item.status|lower }}">{{ item.status }}</span></td></tr>{% else %}<tr><td colspan="4" class="finance-empty">No payroll records for this period.</td></tr>{% endfor %}</tbody></table></div>
+    </article>
+  </section>
+  <section class="finance-card"><div class="finance-head"><div><h3>Expense register</h3><p>All expenses recorded for the selected date range.</p></div><a href="{{ url_for('admin_finance_export', start=start.isoformat(), end=end.isoformat(), type='expenses') }}">Export expenses</a></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Vendor</th><th>Mode</th><th>Amount</th></tr></thead><tbody>{% for item in expenses %}<tr><td>{{ item.expense_date.strftime('%d %b %Y') }}</td><td><span class="category">{{ item.category }}</span></td><td>{{ item.description }}</td><td>{{ item.vendor or '—' }}</td><td>{{ item.payment_mode }}</td><td><b>₹{{ '%.2f'|format(item.amount) }}</b></td></tr>{% else %}<tr><td colspan="6" class="finance-empty">No expenses were recorded for this period.</td></tr>{% endfor %}</tbody></table></div></section>
+</section>
+<script>
+(() => {
+  const button = document.getElementById('finance-ai-button');
+  const output = document.getElementById('finance-ai-output');
+  if (!button || !output) return;
+  button.addEventListener('click', async () => {
+    button.disabled = true; button.textContent = 'Analysing…';
+    try {
+      const response = await fetch('{{ url_for("admin_finance_insights", start=start.isoformat(), end=end.isoformat()) }}');
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error('Unavailable');
+      output.replaceChildren();
+      data.insights.forEach(item => {
+        const card = document.createElement('article'); card.className = `finance-ai-insight ${item.tone || 'info'}`;
+        const title = document.createElement('b'); title.textContent = item.title;
+        const detail = document.createElement('small'); detail.textContent = item.detail;
+        card.append(title, detail); output.append(card);
+      });
+      const disclaimer = document.createElement('small'); disclaimer.className = 'finance-ai-disclaimer'; disclaimer.textContent = data.disclaimer; output.append(disclaimer);
+      output.hidden = false; button.textContent = 'Refresh insights';
+    } catch (_) { output.textContent = 'Insights are unavailable. Please review the figures manually.'; output.hidden = false; button.textContent = 'Try again'; }
+    finally { button.disabled = false; }
+  });
+})();
+</script>
+<style>
+.finance-ai-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin:0 0 16px;padding:17px;border:1px solid #bfe4de;border-radius:14px;background:linear-gradient(115deg,#effbf8,#edf6ff);box-shadow:0 6px 18px #173f6009}.finance-ai-card small{color:#16847a;font-size:10px;font-weight:800;letter-spacing:.7px}.finance-ai-card h3{margin:4px 0;color:#153d5b;font-size:18px}.finance-ai-card p{margin:0;color:#607b90;font-size:12px}.finance-ai-card button{border:0;border-radius:8px;padding:10px 13px;background:linear-gradient(110deg,#168c80,#1565c0);color:#fff;font-size:12px;font-weight:800;cursor:pointer}.finance-ai-card button:disabled{opacity:.7;cursor:wait}#finance-ai-output{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}.finance-ai-insight{padding:10px;border:1px solid #cfe4e5;border-radius:9px;background:#fff}.finance-ai-insight b,.finance-ai-insight small{display:block}.finance-ai-insight b{color:#1d4966;font-size:12px}.finance-ai-insight small{margin-top:4px;color:#668093;font-size:10px;font-weight:400;letter-spacing:0;line-height:1.4}.finance-ai-insight.attention{border-color:#f1cf9b;background:#fff9ee}.finance-ai-insight.positive{border-color:#a9ddd1;background:#f3fffb}.finance-ai-disclaimer{grid-column:1/-1;color:#688296!important;font-weight:400!important;letter-spacing:0!important;line-height:1.4}@media(max-width:600px){.finance-ai-card{grid-template-columns:1fr}.finance-ai-card button{width:100%}}
+.finance-page{max-width:1350px}.finance-hero{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:23px 25px;border-radius:17px;background:linear-gradient(115deg,#123e76,#1565c0 62%,#1d9c91);color:#fff}.finance-hero small{font-size:10px;letter-spacing:1px;font-weight:800}.finance-hero h2{font-size:26px;margin:6px 0}.finance-hero p{margin:0;color:#daf6f2;font-size:12px}.finance-hero>a,.date-filter>a{border:1px solid #bbece5;border-radius:8px;padding:10px 12px;color:#fff;text-decoration:none;font-size:12px;font-weight:800}.date-filter{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:16px 0}.date-filter label,.entry-form label{display:grid;gap:5px;color:#4a667b;font-size:11px;font-weight:800}.date-filter input,.entry-form input,.entry-form select{box-sizing:border-box;width:100%;min-height:39px;padding:8px 10px;border:1px solid #c9dbe5;border-radius:8px;background:#fff;color:#193d59;font-size:13px}.date-filter button,.entry-form button{min-height:39px;border:0;border-radius:8px;padding:0 13px;background:#118d80;color:#fff;font-size:12px;font-weight:800;cursor:pointer}.date-filter>a{background:#1565c0;border-color:#1565c0}.finance-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}.finance-kpis article,.finance-card{background:#fff;border:1px solid #dce8ef;border-radius:14px;box-shadow:0 6px 18px #173f600c}.finance-kpis article{padding:16px}.finance-kpis span,.finance-kpis small{display:block;color:#6b8295;font-size:11px}.finance-kpis b{display:block;margin:8px 0 4px;color:#1565c0;font-size:24px}.finance-kpis .expense b{color:#d36d11}.finance-kpis .payroll b{color:#6a4bb5}.finance-kpis .net b{color:#148878}.finance-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-bottom:16px}.payroll-grid{grid-template-columns:.9fr 1.1fr}.finance-card{overflow:hidden}.finance-head{display:flex;justify-content:space-between;gap:12px;align-items:start;padding:17px;border-bottom:1px solid #e7eef2}.finance-head h3{margin:0;color:#163d5b;font-size:17px}.finance-head p{margin:5px 0 0;color:#70869a;font-size:12px}.finance-head a{color:#1466b6;text-decoration:none;font-size:11px;font-weight:800}.revenue-list{padding:8px 17px 17px}.revenue-list>div{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;padding:10px 0;border-bottom:1px solid #edf2f4;color:#355871;font-size:12px}.revenue-list b{color:#147d70}.revenue-list i{grid-column:1/-1;height:7px;min-width:3%;border-radius:7px;background:linear-gradient(90deg,#26a69a,#1565c0)}.entry-form{display:grid;gap:11px;padding:17px}.two-col,.three-col{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.three-col{grid-template-columns:repeat(3,1fr)}.entry-form button{justify-self:start;padding:0 16px}.table-wrap{overflow:auto}.table-wrap table{width:100%;border-collapse:collapse;min-width:600px}.table-wrap th,.table-wrap td{padding:12px 14px;border-bottom:1px solid #e9eff3;text-align:left;color:#405f73;font-size:12px}.table-wrap th{background:#f5f9fb;color:#6c8496;font-size:10px;text-transform:uppercase}.table-wrap small{display:block;margin-top:3px;color:#71869a;font-size:10px}.category,.status{display:inline-block;padding:4px 7px;border-radius:10px;background:#eaf3ff;color:#1761af;font-size:10px;font-weight:800}.status.paid{background:#e3f7ee;color:#157452}.status.approved{background:#eef0ff;color:#5e51a4}.status.draft{background:#fff1df;color:#a85d00}.finance-empty{padding:20px!important;color:#71869a!important;text-align:center}@media(max-width:950px){.finance-hero,.finance-grid{display:block}.finance-hero>a{display:inline-block;margin-top:14px}.finance-kpis{grid-template-columns:repeat(2,1fr)}.finance-grid>.finance-card+ .finance-card{margin-top:16px}}@media(max-width:600px){.finance-kpis,.two-col,.three-col{grid-template-columns:1fr}.finance-kpis b{font-size:21px}.date-filter{align-items:stretch}.date-filter>*{width:100%}}
+</style>
+{% endblock %}

@@ -1,0 +1,20 @@
+# Local application data and credentials
+.env
+ai.env
+clinic.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+venv/
+.venv/
+
+# Generated exports and logs
+*.log
+exports/
+uploads/
