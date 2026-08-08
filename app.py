@@ -1023,7 +1023,11 @@ def patient_journey(patient_id):
     labs = LabOrder.query.filter_by(patient_id=patient.id).order_by(LabOrder.ordered_at.desc()).all()
     prescriptions = Prescription.query.filter_by(patient_id=patient.id).order_by(Prescription.created_at.desc()).all()
     invoices = Invoice.query.filter_by(patient_id=patient.id).order_by(Invoice.created_at.desc()).all()
-    return render_template("patient_journey.html", patient=patient, latest=latest, note=note, labs=labs, prescription=prescriptions[0] if prescriptions else None, invoice=invoices[0] if invoices else None)
+    # The overview template always renders a medicines section.  Give a newly
+    # registered patient an empty read-only prescription shape rather than
+    # passing None, so the overview remains available before the first Rx.
+    prescription = prescriptions[0] if prescriptions else SimpleNamespace(items=[], dispensed=False)
+    return render_template("patient_journey.html", patient=patient, latest=latest, note=note, labs=labs, prescription=prescription, invoice=invoices[0] if invoices else None)
 
 @app.get("/appointments/<int:appointment_id>/whatsapp-reminder")
 @login_required
