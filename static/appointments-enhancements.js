@@ -74,6 +74,10 @@
     if (!node) { node = document.createElement('div'); node.id = 'appointment-live-notice'; node.setAttribute('role', 'status'); document.body.append(node); }
     node.textContent = message; node.dataset.tone = tone; node.classList.add('show'); setTimeout(() => node.classList.remove('show'), 4200);
   };
+  const bookingConfirmation = document.querySelector('.flash.success')?.textContent.trim();
+  if (bookingConfirmation && /appointment registered|appointment scheduled/i.test(bookingConfirmation)) {
+    setTimeout(() => toast(bookingConfirmation, 'success'), 120);
+  }
   if (form) {
     const bookingCard = form.closest('.booking-card');
     const progress = document.createElement('div');

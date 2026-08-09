@@ -62,8 +62,9 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
     MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     PREFERRED_URL_SCHEME="https" if IS_PRODUCTION else "http",
-    # During local development, always serve the newest JavaScript and CSS after a refresh.
-    SEND_FILE_MAX_AGE_DEFAULT=31536000 if IS_PRODUCTION else 0,
+    # Versioned static asset URLs let browsers cache CSS/JavaScript safely.
+    # This avoids re-downloading every module's styling on each phone navigation.
+    SEND_FILE_MAX_AGE_DEFAULT=31536000 if IS_PRODUCTION else 3600,
 )
 if IS_PRODUCTION:
     # Trust the HTTPS scheme supplied by exactly one reverse proxy/load balancer.
@@ -881,7 +882,11 @@ def appointments():
         reason = request.form.get("reason")
         if booking_type == "followup": reason = f"Follow-up ({request.form.get('followup_interval', '30')} days): {reason or 'Clinical review'}"
         appt = Appointment(patient_id=patient_id, doctor_id=int(request.form["doctor_id"]), scheduled_at=datetime.strptime(request.form["scheduled_at"], "%Y-%m-%dT%H:%M"), mode=request.form["mode"], reason=reason, consultation_fee=float(request.form["fee"]))
-        db.session.add(appt); db.session.commit(); flash("Appointment scheduled.", "success"); return redirect(url_for("appointments"))
+        db.session.add(appt); db.session.flush()
+        db.session.add(AppointmentLog(appointment_id=appt.id, actor_id=current_user.id, action="Appointment registered", reason=f"{appt.mode} · {appt.scheduled_at.strftime('%d %b %Y, %I:%M %p')}"))
+        db.session.commit()
+        flash(f"Appointment registered for {appt.patient.user.name}. Scheduled for {appt.scheduled_at.strftime('%d %b %Y, %I:%M %p')}. Check in the patient to start vitals.", "success")
+        return redirect(url_for("appointments"))
     all_appointments = Appointment.query.order_by(Appointment.scheduled_at.desc()).all()
     selected_status = request.args.get("status", "All")
     visible = all_appointments if selected_status == "All" else [a for a in all_appointments if a.status == selected_status]
@@ -1511,7 +1516,12 @@ def create_prescription():
             added += 1
         if not added:
             db.session.rollback(); flash("Add at least one medicine or choose a prescription template.", "warning"); return redirect(request.referrer or url_for("dashboard"))
-    db.session.commit(); flash("Prescription created.", "success"); return redirect(url_for("prescription_print", prescription_id=rx.id))
+    db.session.commit()
+    appointment_id = request.form.get("appointment_id", type=int)
+    flash("Prescription created and sent to the Pharmacy pending-dispensing queue.", "success")
+    if appointment_id:
+        return redirect(url_for("encounter", appointment_id=appointment_id, tab="prescription"))
+    return redirect(url_for("prescription_print", prescription_id=rx.id))
 
 @app.route("/pharmacy", methods=["GET", "POST"])
 @login_required
@@ -1575,7 +1585,8 @@ def pharmacy():
             rx.dispensed = True; db.session.add(Invoice(patient_id=rx.patient_id, category="Pharmacy", description=f"Prescription #{rx.id}", amount=total)); db.session.commit(); flash("Medicines dispensed and stock updated.", "success")
     medicines = Medicine.query.order_by(Medicine.name).all(); batches = MedicineBatch.query.order_by(MedicineBatch.expiry_date, MedicineBatch.received_at.desc()).all(); today = date.today()
     low_stock = [medicine for medicine in medicines if medicine.stock <= medicine.reorder_level]; expiring_batches = [batch for batch in batches if batch.expiry_date and batch.expiry_date <= today]
-    return render_template("pharmacy.html", medicines=medicines, batches=batches, low_stock=low_stock, expiring_batches=expiring_batches, today=today, prescriptions=Prescription.query.filter_by(dispensed=False).all(), patients=Patient.query.order_by(Patient.mrn).all(), active_tab=request.args.get("tab", "dispense"))
+    pending_prescriptions = Prescription.query.filter_by(dispensed=False).order_by(Prescription.created_at.desc()).all()
+    return render_template("pharmacy.html", medicines=medicines, batches=batches, low_stock=low_stock, expiring_batches=expiring_batches, today=today, prescriptions=pending_prescriptions, patients=Patient.query.order_by(Patient.mrn).all(), active_tab=request.args.get("tab", "dispense"))
 
 @app.route("/billing/collections", methods=["GET", "POST"])
 @login_required
