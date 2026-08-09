@@ -292,7 +292,10 @@ class Encounter(db.Model):
     id = db.Column(db.Integer, primary_key=True); appointment_id = db.Column(db.Integer, db.ForeignKey("appointment.id"), unique=True)
     history = db.Column(db.Text); diagnosis = db.Column(db.Text); bp = db.Column(db.String(20)); pulse = db.Column(db.String(20)); temperature = db.Column(db.String(20))
     weight = db.Column(db.Float); height = db.Column(db.Float); notes = db.Column(db.Text)
-    appointment = db.relationship("Appointment", backref="encounter")
+    # One appointment has one clinical encounter.  Explicitly make the reverse
+    # relationship scalar; without this SQLAlchemy exposes `appt.encounter` as
+    # a list, which prevents the reception/doctor vitals form from saving.
+    appointment = db.relationship("Appointment", backref=db.backref("encounter", uselist=False))
 
 class LabOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True); patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False); doctor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
