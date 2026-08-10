@@ -917,8 +917,39 @@ def check_in(appointment_id):
     if appt.status not in ("Scheduled", "Booked"):
         flash("Only scheduled appointments can be checked in.", "warning")
     else:
-        appt.status = "Checked In"; db.session.commit(); flash(f"{appt.patient.user.name} checked in. Token: {appt.id}", "success")
+        appt.status = "Vitals Pending"
+        db.session.add(AppointmentLog(appointment_id=appt.id, actor_id=current_user.id, action="Patient checked in", reason=f"Token {appt.id} assigned; vitals pending"))
+        db.session.commit()
+        flash(f"{appt.patient.user.name} checked in. Token: {appt.id}. Record vitals before sending the patient to the doctor.", "success")
     return redirect(url_for("appointments"))
+
+@app.route("/appointments/<int:appointment_id>/vitals", methods=["GET", "POST"])
+@login_required
+@roles("admin", "reception")
+def record_vitals(appointment_id):
+    """Reception's short, dedicated clinical-intake step before consultation."""
+    appt = db.session.get(Appointment, appointment_id) or abort(404)
+    if appt.status in {"Cancelled", "No Show", "Consulted"}:
+        flash("Vitals cannot be recorded for this appointment status.", "warning")
+        return redirect(url_for("appointments"))
+    note = appt.encounter or Encounter(appointment_id=appt.id)
+    if request.method == "POST":
+        try:
+            note.bp = (request.form.get("bp") or "").strip() or None
+            note.pulse = (request.form.get("pulse") or "").strip() or None
+            note.temperature = (request.form.get("temperature") or "").strip() or None
+            note.weight = float(request.form["weight"]) if request.form.get("weight") else None
+            note.height = float(request.form["height"]) if request.form.get("height") else None
+        except ValueError:
+            flash("Weight and height must be valid numbers.", "danger")
+            return render_template("record_vitals.html", appt=appt, encounter=note)
+        appt.status = "Waiting"
+        db.session.add(note)
+        db.session.add(AppointmentLog(appointment_id=appt.id, actor_id=current_user.id, action="Reception vitals recorded", reason="Patient moved to doctor waiting queue"))
+        db.session.commit()
+        flash(f"Vitals saved for {appt.patient.user.name}. The patient is now in the doctor waiting queue.", "success")
+        return redirect(url_for("appointments", status="Waiting"))
+    return render_template("record_vitals.html", appt=appt, encounter=note)
 
 @app.post("/appointments/<int:appointment_id>/attendance")
 @login_required

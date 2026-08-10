@@ -15,7 +15,7 @@
   {% if request.endpoint in ['labs','lab_inventory','pharmacy'] or (current_user.is_authenticated and current_user.role not in ['patient','admin'] and request.endpoint not in ['dashboard','admin','labs','lab_inventory']) %}<link rel="stylesheet" href="{{ url_for('static', filename='lab-final.css') }}?v=20260810">{% endif %}
   <style>aside{background:#103c67!important;border-color:#1b507e!important}aside .brand,aside .role,aside nav a{color:#eaf5ff!important}aside .brand b{color:#5be4d1!important}aside .role small{color:#a7c6e5!important}aside nav a:hover{background:#1a527e!important;color:#fff!important}header{display:flex;justify-content:space-between;align-items:start}.patient-overview-link{display:none}</style>
 </head>
-<body>
+<body data-role="{{ current_user.role if current_user.is_authenticated else 'guest' }}">
 {% macro admin_sidebar() -%}
 <aside class="admin-persistent-nav"><div class="brand"><b>✚</b> Dr. Sagar's Clinic</div><p class="role">{{ current_user.name }}<small>Administrator</small></p><nav><a href="{{ url_for('dashboard') }}">⌂ Dashboard</a><a href="{{ url_for('patient_journey', patient_id=1) }}">◉ Patient Overview</a><a href="{{ url_for('appointments') }}">▣ Reception Desk</a><a href="{{ url_for('consultation_workspace') }}">⚕ Consultation</a><a href="{{ url_for('dietician_workspace') }}">♡ Dietician</a><a href="{{ url_for('labs') }}">⚗ Laboratory</a><a href="{{ url_for('pharmacy') }}">✚ Pharmacy</a><a href="{{ url_for('admin') }}">⚙ Administration</a><a href="{{ url_for('logout') }}">→ Sign out</a></nav></aside>
 {%- endmacro %}
