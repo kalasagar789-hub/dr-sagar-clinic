@@ -1,7 +1,7 @@
 (() => {
   const consultPage = document.querySelector('.consult-page');
   if (consultPage && !document.querySelector('.consult-live-queue')) {
-    const panel = document.createElement('aside');
+    const panel = document.createElement('section');
     panel.className = 'consult-live-queue';
     panel.innerHTML = '<div class="consult-queue-head"><div><small>DOCTOR WORKSPACE</small><h3>Today\'s queue</h3></div><span class="queue-count">0</span></div><p>Select a patient to open their consultation.</p><div class="consult-queue-list"><div class="queue-loading">Loading patients…</div></div><a href="/appointments" class="queue-link">Open appointment queue →</a>';
     consultPage.insertBefore(panel, consultPage.firstChild);
