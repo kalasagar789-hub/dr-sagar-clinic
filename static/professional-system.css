@@ -83,6 +83,11 @@ textarea { line-height: 1.45; }
 
 .flash { box-shadow: var(--ui-shadow); }
 
+.app-action-toast { position:fixed;z-index:2100;top:20px;right:20px;max-width:min(430px,calc(100vw - 32px));padding:13px 16px;border:1px solid #a9dccf;border-left:5px solid var(--ui-primary);border-radius:9px;background:#effbf7;color:#126a59;box-shadow:0 15px 35px rgba(15,60,70,.2);font-size:13px;font-weight:800;opacity:0;transform:translateY(-12px);transition:.2s ease; }
+.app-action-toast.show { opacity:1;transform:translateY(0); }
+.app-action-toast[data-tone="warning"] { border-color:#efd39d;border-left-color:#dc8a1d;background:#fff8e9;color:#946017; }
+.app-action-toast[data-tone="danger"] { border-color:#efb9bd;border-left-color:#cf3f49;background:#fff0f1;color:#9d2932; }
+
 /* Tables remain usable on constrained screens without widening the page. */
 .table-scroll, .inventory-scroll, .pharm-scroll, .pd-table-wrap,
 .result-table-wrap, .bulk-body { max-width: 100%; overflow-x: auto; }
@@ -107,4 +112,5 @@ td, th { overflow-wrap: anywhere; }
   :root { --ui-radius: 9px; --ui-space: 12px; }
   button, .button { min-height: 44px; }
   input, select { min-height: 44px; }
+  .app-action-toast { top:12px;right:12px;left:12px;max-width:none; }
 }

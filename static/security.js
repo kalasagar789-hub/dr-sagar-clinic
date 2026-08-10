@@ -11,6 +11,14 @@
     theme.rel = 'stylesheet'; theme.href = '/static/reset-theme.css?v=20260807';
     document.head.append(theme);
   }
+  const flash = document.querySelector('.flash.success, .flash.warning, .flash.danger');
+  if (flash && !document.querySelector('.clinic-action-toast, .app-action-toast')) {
+    const toast = document.createElement('div'); toast.className = 'app-action-toast';
+    toast.dataset.tone = flash.classList.contains('danger') ? 'danger' : flash.classList.contains('warning') ? 'warning' : 'success';
+    toast.setAttribute('role', 'status'); toast.setAttribute('aria-live', 'polite'); toast.textContent = flash.textContent.trim();
+    document.body.append(toast); requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => toast.classList.remove('show'), 4800);
+  }
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
   if (!token) return;
 

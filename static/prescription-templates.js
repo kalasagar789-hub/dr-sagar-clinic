@@ -84,6 +84,31 @@
   const form = master.closest('form');
   if (!form) return;
 
+  const prescriptionPane = form.closest('[data-pane="prescription"]');
+  const notify = (message, tone = 'success') => {
+    let toast = document.querySelector('.clinic-action-toast');
+    if (!toast) {
+      toast = document.createElement('div'); toast.className = 'clinic-action-toast';
+      toast.setAttribute('role', 'status'); toast.setAttribute('aria-live', 'polite'); document.body.append(toast);
+    }
+    toast.textContent = message; toast.dataset.tone = tone; toast.classList.add('show');
+    clearTimeout(window.clinicActionToastTimer);
+    window.clinicActionToastTimer = setTimeout(() => toast.classList.remove('show'), 4500);
+  };
+  const serverFlash = document.querySelector('.flash.success, .flash.warning, .flash.danger');
+  if (serverFlash) setTimeout(() => notify(serverFlash.textContent.trim(), serverFlash.classList.contains('danger') ? 'danger' : serverFlash.classList.contains('warning') ? 'warning' : 'success'), 120);
+  if (prescriptionPane && !prescriptionPane.querySelector('.rx-fullscreen-toggle')) {
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'rx-fullscreen-toggle';
+    const setFullScreen = enabled => {
+      prescriptionPane.classList.toggle('rx-fullscreen', enabled); document.body.classList.toggle('rx-screen-open', enabled);
+      toggle.textContent = enabled ? 'Exit full screen' : 'Open full-screen prescription';
+      if (enabled) search.focus({ preventScroll: true });
+    };
+    toggle.addEventListener('click', () => setFullScreen(!prescriptionPane.classList.contains('rx-fullscreen')));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && prescriptionPane.classList.contains('rx-fullscreen')) setFullScreen(false); });
+    prescriptionPane.querySelector('.pane-head')?.append(toggle); setFullScreen(false);
+  }
+
   const box = document.createElement('section');
   box.className = 'rx-template-box';
   box.innerHTML = '<div class="rx-template-heading"><span>Quick prescription templates</span><small>Select once to add a safe starting plan</small></div><label>Suggested template<select name="template_id"><option value="">Choose a template (optional)</option></select></label><div class="rx-template-suggestions"></div><div class="rx-template-preview">Choose a template to preview medicines, combinations and advice.</div>';
@@ -165,7 +190,7 @@
         instructionsControl.value = row.querySelector('[name="instructions"]').value; search.value = master.options[master.selectedIndex].textContent.split(' â€” ')[0];
         row.remove(); updateCart(); master.focus();
       });
-      items.append(row); select.value = ''; master.value = ''; search.value = ''; dosageControl.value = ''; durationControl.value = ''; quantityControl.value = 30; instructionsControl.value = 'After food'; updateCart(); search.focus({ preventScroll: true });
+      items.append(row); select.value = ''; master.value = ''; search.value = ''; dosageControl.value = ''; durationControl.value = ''; quantityControl.value = 30; instructionsControl.value = 'After food'; updateCart(); notify(`${label} added to prescription.`); search.focus({ preventScroll: true });
     };
     add.addEventListener('click', addMedicine);
     form.addEventListener('submit', event => { if (!items.children.length && !select.value) { event.preventDefault(); alert('Add one or more medicines, or select a prescription template.'); } });
