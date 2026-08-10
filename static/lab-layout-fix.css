@@ -1,0 +1,115 @@
+.lab-v2-layout {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  grid-template-areas: "tests detail" "tests summary";
+  gap: 16px;
+  align-items: start;
+}
+
+.lab-requested-tests { grid-area: tests; position: sticky !important; top: 92px; }
+
+.lab-v2-detail {
+  grid-area: detail;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lab-v2-summary {
+  grid-area: summary;
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lab-v2-summary .summary-block { min-width: 0; border-right: 1px solid #e7eff3; border-bottom: 0; }
+.lab-v2-summary .summary-block:last-child { border-right: 0; }
+
+.lab-v2-worksteps {
+  padding: 20px;
+  gap: 16px;
+}
+
+.lab-v2-step {
+  padding: 18px;
+}
+
+.lab-v2-step .lab-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lab-v2-step .lab-form-grid select,
+.lab-v2-step .lab-form-grid textarea {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.lab-v2-step .lab-form-grid textarea {
+  min-height: 96px;
+}
+
+.lab-v2-step .lab-primary {
+  min-height: 44px;
+  padding-inline: 20px;
+}
+
+@media (max-width: 1250px) {
+  .lab-v2-layout {
+    grid-template-columns: 245px minmax(0, 1fr);
+  }
+
+  .lab-v2-summary {
+    grid-column: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 850px) {
+  .lab-v2-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas: "tests" "detail" "summary";
+  }
+
+  .lab-requested-tests { position: static !important; }
+  .lab-v2-summary { grid-template-columns: 1fr; }
+  .lab-v2-summary .summary-block { border-right: 0; border-bottom: 1px solid #e7eff3; }
+
+  .lab-v2-worksteps,
+  .lab-v2-step {
+    padding: 14px;
+  }
+}
+
+body:has(.admin-persistent-nav) main:has(.lab-page) { box-sizing: border-box; overflow-x: hidden; }
+.lab-v2 { max-width: 1440px; }
+.lab-v2-intro { margin-bottom: 14px; }
+.lab-kpis { gap: 12px; margin-bottom: 12px; }
+.lab-kpi { min-height: 92px; padding: 14px 16px; border-radius: 12px; }
+.lab-kpi b { margin: 6px 0 3px; font-size: 26px; }
+.lab-v2-patient-card { margin-bottom: 16px; border-radius: 12px; }
+.lab-patient-strip { min-height: 58px; padding: 10px 16px; }
+.lab-patient-select { min-width: 220px; padding: 9px 11px; }
+.lab-v2-card { border-radius: 12px; }
+.lab-v2-order-header { padding: 18px 20px; background: linear-gradient(105deg, #f8fcff, #f4fcfa); }
+.lab-v2-progress { padding: 18px 34px 28px; }
+.lab-v2-step > header { padding-bottom: 12px; border-bottom: 1px solid #e7eef3; }
+.lab-v2-step.current { border-left-width: 5px; box-shadow: 0 6px 18px rgba(20, 62, 91, .07); }
+.requested-list { max-height: 360px; }
+.direct-lab-order { margin-top: 8px; }
+
+@media (max-width: 1050px) {
+  .lab-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .lab-v2-step .lab-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-v2-step .lab-form-grid .wide {
+    grid-column: auto;
+  }
+}

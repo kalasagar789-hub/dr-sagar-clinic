@@ -80,10 +80,15 @@
   }
   if (form) {
     const bookingCard = form.closest('.booking-card');
-    const progress = document.createElement('div');
-    progress.className = 'booking-progress';
-    progress.innerHTML = '<div class="active"><b>1</b>Choose patient</div><div><b>2</b>Visit details</div><div><b>3</b>Confirm booking</div>';
-    bookingCard?.querySelector('.booking-title')?.after(progress);
+    const existingProgress = [...(bookingCard?.querySelectorAll('.booking-progress') || [])];
+    existingProgress.slice(1).forEach(node => node.remove());
+    let progress = bookingCard?.querySelector('.booking-progress');
+    if (!progress) {
+      progress = document.createElement('div');
+      progress.className = 'booking-progress';
+      progress.innerHTML = '<div class="active"><b>1</b>Choose patient</div><div><b>2</b>Visit details</div><div><b>3</b>Confirm booking</div>';
+      bookingCard?.querySelector('.booking-title')?.after(progress);
+    }
     const icons = { existing: '⌕', new: '+', followup: '↻' };
     document.querySelectorAll('[data-booking]').forEach(button => {
       if (!button.querySelector('.booking-tab-icon')) button.insertAdjacentHTML('afterbegin', `<i class="booking-tab-icon">${icons[button.dataset.booking] || '•'}</i>`);
@@ -92,14 +97,16 @@
       const section = form.querySelector(selector);
       if (section && !section.querySelector('.booking-section-heading')) section.insertAdjacentHTML('afterbegin', `<div class="booking-section-heading"><b>${title}</b><span>${detail}</span></div>`);
     });
-    const visitDetails = document.createElement('section');
+    const visitDetails = form.querySelector('.booking-visit-details') || document.createElement('section');
     visitDetails.className = 'booking-visit-details';
     const submit = form.querySelector('button[type="submit"], button:not([type])');
     const visitFields = [...form.children].filter(child => child.matches?.('label') && !child.classList.contains('full'));
     const reason = [...form.children].find(child => child.matches?.('label.full') && child.querySelector('[name="reason"]'));
     visitFields.forEach(field => visitDetails.append(field));
     if (reason) visitDetails.append(reason);
-    if (submit) form.insertBefore(visitDetails, submit); else form.append(visitDetails);
+    if (!visitDetails.isConnected) {
+      if (submit) form.insertBefore(visitDetails, submit); else form.append(visitDetails);
+    }
     const setProgress = type => {
       const first = progress.querySelector('div:first-child');
       if (first) first.querySelector('span')?.remove();

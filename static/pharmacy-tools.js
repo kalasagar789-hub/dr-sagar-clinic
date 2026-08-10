@@ -15,6 +15,24 @@
   const medicine = form.querySelector('select[name="medicine_id"]');
   const quantity = form.querySelector('input[name="quantity"]');
   if (!medicine || !quantity) return;
+  const prescription = window.PHARMACY_RX;
+  const patient = form.querySelector('select[name="patient_id"]');
+  if (prescription && patient) {
+    patient.value = String(prescription.patient_id);
+    const firstItem = prescription.items?.[0];
+    if (firstItem) {
+      medicine.value = String(firstItem.medicine_id);
+      quantity.value = String(firstItem.quantity);
+    }
+    let prescriptionId = form.querySelector('input[name="prescription_id"]');
+    if (!prescriptionId) {
+      prescriptionId = document.createElement('input');
+      prescriptionId.type = 'hidden';
+      prescriptionId.name = 'prescription_id';
+      form.append(prescriptionId);
+    }
+    prescriptionId.value = String(prescription.id);
+  }
   const preview = document.createElement('section'); preview.className = 'pos-medicine-preview'; preview.innerHTML = '<b>Medicine invoice details</b><span>Select a medicine to load batch, expiry, MRP, GST and stock.</span>';
   form.insertBefore(preview, form.firstChild.nextSibling);
   const loadDetails = () => {
@@ -35,6 +53,16 @@
     const rowPreview = document.createElement('small'); rowPreview.textContent = 'Batch and invoice details are selected automatically at billing.';
     row.append(select, input, remove, rowPreview); lines.append(row);
   };
+  if (prescription?.items?.length > 1) {
+    prescription.items.slice(1).forEach(item => {
+      const row = document.createElement('div'); row.className = 'pos-extra-line';
+      const select = medicine.cloneNode(true); select.value = String(item.medicine_id); select.name = 'medicine_id';
+      const input = quantity.cloneNode(true); input.value = String(item.quantity); input.name = 'quantity';
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.onclick = () => row.remove();
+      const rowPreview = document.createElement('small'); rowPreview.textContent = 'Added automatically from the doctor prescription.';
+      row.append(select, input, remove, rowPreview); lines.append(row);
+    });
+  }
   form.insertBefore(lines, form.querySelector('button[type="submit"]'));
   form.insertBefore(add, lines);
 })();

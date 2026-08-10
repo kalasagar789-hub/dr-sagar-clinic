@@ -1711,19 +1711,52 @@ def pharmacy():
                 medicine.stock -= quantity; consume_medicine_batches(medicine, quantity)
                 line_discount = discount if index == 0 else 0
                 db.session.add(PharmacySaleLine(invoice_id=invoice.id, medicine_id=medicine.id, batch_id=batch.id if batch else None, quantity=quantity, unit_price=medicine.unit_price, discount=line_discount))
+            prescription_id = request.form.get("prescription_id", type=int)
+            if prescription_id:
+                billed_rx = db.session.get(Prescription, prescription_id)
+                if not billed_rx or billed_rx.dispensed or billed_rx.patient_id != invoice.patient_id:
+                    db.session.rollback()
+                    flash("The linked prescription is invalid or was already dispensed.", "danger")
+                    return redirect(url_for("pharmacy"))
+                prescribed = {}
+                for item in billed_rx.items:
+                    prescribed[item.medicine_id] = prescribed.get(item.medicine_id, 0) + item.quantity
+                if requested != prescribed:
+                    db.session.rollback()
+                    flash("Prescription medicines or quantities changed. Reopen the prescription before billing.", "danger")
+                    return redirect(url_for("pharmacy", tab="pos", rx=billed_rx.id))
+                billed_rx.dispensed = True
             db.session.commit()
             return redirect(url_for("invoice_print", invoice_id=invoice.id))
         rx = db.session.get(Prescription, int(request.form["prescription_id"]))
         if rx.dispensed: flash("This prescription was already dispensed.", "warning")
         elif any(item.medicine.stock < item.quantity for item in rx.items): flash("Insufficient stock for one or more items.", "danger")
         else:
-            total = 0
-            for item in rx.items: item.medicine.stock -= item.quantity; consume_medicine_batches(item.medicine, item.quantity); total += item.quantity * item.medicine.unit_price
-            rx.dispensed = True; db.session.add(Invoice(patient_id=rx.patient_id, category="Pharmacy", description=f"Prescription #{rx.id}", amount=total)); db.session.commit(); flash("Medicines dispensed and stock updated.", "success")
+            return redirect(url_for("pharmacy", tab="pos", rx=rx.id))
     medicines = Medicine.query.order_by(Medicine.name).all(); batches = MedicineBatch.query.order_by(MedicineBatch.expiry_date, MedicineBatch.received_at.desc()).all(); today = date.today()
     low_stock = [medicine for medicine in medicines if medicine.stock <= medicine.reorder_level]; expiring_batches = [batch for batch in batches if batch.expiry_date and batch.expiry_date <= today]
     pending_prescriptions = Prescription.query.filter_by(dispensed=False).order_by(Prescription.created_at.desc()).all()
-    return render_template("pharmacy.html", medicines=medicines, batches=batches, low_stock=low_stock, expiring_batches=expiring_batches, today=today, prescriptions=pending_prescriptions, patients=Patient.query.order_by(Patient.mrn).all(), active_tab=request.args.get("tab", "dispense"))
+    selected_rx_id = request.args.get("rx", type=int)
+    selected_rx = next((rx for rx in pending_prescriptions if rx.id == selected_rx_id), None) or (pending_prescriptions[0] if pending_prescriptions else None)
+    pos_rx = db.session.get(Prescription, selected_rx_id) if request.args.get("tab") == "pos" and selected_rx_id else None
+    if pos_rx and pos_rx.dispensed:
+        pos_rx = None
+    pos_rx_payload = ({
+        "id": pos_rx.id,
+        "patient_id": pos_rx.patient_id,
+        "patient": pos_rx.patient.user.name,
+        "items": [{"medicine_id": item.medicine_id, "quantity": item.quantity} for item in pos_rx.items],
+    } if pos_rx else None)
+    pharmacy_invoices = Invoice.query.filter(Invoice.category.in_(["Pharmacy", "Pharmacy POS"])).order_by(Invoice.created_at.desc()).limit(8).all()
+    today_invoices = [invoice for invoice in pharmacy_invoices if invoice.created_at.date() == today]
+    today_sales = round(sum(invoice.amount for invoice in today_invoices), 2)
+    stock_units = sum(max(0, medicine.stock or 0) for medicine in medicines)
+    return render_template("pharmacy.html", medicines=medicines, batches=batches, low_stock=low_stock,
+        expiring_batches=expiring_batches, today=today, prescriptions=pending_prescriptions,
+        selected_rx=selected_rx, pharmacy_invoices=pharmacy_invoices, today_invoices=today_invoices,
+        today_sales=today_sales, stock_units=stock_units, pos_rx_payload=pos_rx_payload,
+        patients=Patient.query.order_by(Patient.mrn).all(),
+        active_tab=request.args.get("tab", "dispense"))
 
 @app.route("/billing/collections", methods=["GET", "POST"])
 @login_required
