@@ -1,0 +1,255 @@
+main:has(.consult-page) {
+  box-sizing: border-box;
+  max-width: none;
+  overflow-x: hidden;
+}
+
+.consult-page {
+  max-width: 1480px !important;
+  font-size: 14px !important;
+}
+
+.patient-banner {
+  min-height: 78px;
+  margin-bottom: 10px !important;
+  padding: 14px 18px !important;
+  border-radius: 12px !important;
+}
+
+.patient-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 18px !important;
+}
+
+.patient-info h2 { font-size: 21px !important; }
+
+.patient-facts {
+  margin-bottom: 12px !important;
+  padding: 10px 12px !important;
+  border-radius: 11px !important;
+}
+
+.patient-facts div { padding: 2px 12px !important; }
+.patient-facts b { font-size: 13px !important; }
+
+.work-card {
+  display: grid;
+  grid-template-columns: 185px minmax(0, 1fr);
+  grid-template-areas:
+    "tabs content"
+    "tabs footer";
+  align-items: stretch;
+  border-radius: 12px !important;
+  overflow: visible !important;
+}
+
+.work-card > #clinical-form { display: none; }
+
+.tabbar {
+  grid-area: tabs;
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: flex !important;
+  min-height: 520px;
+  flex-direction: column;
+  gap: 5px !important;
+  padding: 14px 10px !important;
+  border-right: 1px solid #e1e9ee !important;
+  border-bottom: 0 !important;
+  border-radius: 11px 0 0 11px;
+  background: #f6f9fb;
+}
+
+.tabbar::before {
+  content: "CLINICAL WORKFLOW";
+  padding: 5px 10px 9px;
+  color: #7890a2;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.tabbar button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 43px;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-radius: 8px;
+  color: #49657a !important;
+  text-align: left;
+  font-size: 12px !important;
+}
+
+.tabbar button::before {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 9px;
+  border-radius: 6px;
+  background: #e6eef4;
+  color: #506d83;
+  font-size: 10px;
+}
+
+.tabbar button[data-tab="summary"]::before { content: "01"; }
+.tabbar button[data-tab="history"]::before { content: "02"; }
+.tabbar button[data-tab="examination"]::before { content: "03"; }
+.tabbar button[data-tab="diagnosis"]::before { content: "04"; }
+.tabbar button[data-tab="labs"]::before { content: "05"; }
+.tabbar button[data-tab="prescription"]::before { content: "06"; }
+.tabbar button[data-tab="followup"]::before { content: "07"; }
+
+.tabbar button.active {
+  background: linear-gradient(100deg, #e8f7f3, #edf5ff) !important;
+  color: #0c776c !important;
+  box-shadow: inset 3px 0 #0a9a83;
+}
+
+.tabbar button.active::before {
+  background: #0a9a83;
+  color: #fff;
+}
+
+.pane {
+  grid-area: content;
+  min-width: 0;
+  min-height: 500px !important;
+  padding: 22px 24px 28px !important;
+}
+
+.pane-head {
+  margin-bottom: 16px !important;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #e6edf1;
+}
+
+.pane-head h3 { font-size: 18px !important; }
+.pane-head p { margin-top: 4px !important; font-size: 12px !important; }
+
+.section-box {
+  padding: 16px !important;
+  border-radius: 10px !important;
+  background: #fbfdfe !important;
+}
+
+.large-text {
+  min-height: 190px !important;
+  font-size: 14px !important;
+}
+
+.pane[data-pane="summary"] .two-col {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr) !important;
+}
+
+.pane[data-pane="prescription"] .two-col {
+  grid-template-columns: minmax(0, 1fr) 285px !important;
+  gap: 16px !important;
+}
+
+.pane[data-pane="prescription"] .rx-sticky {
+  position: static !important;
+  background: #fff !important;
+}
+
+.pane[data-pane="prescription"] .two-col > .section-box:last-child {
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.drug-search {
+  min-height: 44px;
+  margin-bottom: 10px !important;
+  background: #f7fbfe;
+}
+
+.rx-template-box {
+  margin-bottom: 12px !important;
+  padding: 12px !important;
+}
+
+.rx-template-preview { max-height: 78px; overflow-y: auto; }
+
+.rx-builder {
+  display: grid !important;
+  grid-template-columns: minmax(210px, 1.5fr) 145px 120px 80px minmax(150px, 1fr) !important;
+  gap: 9px !important;
+  align-items: end;
+}
+
+.rx-builder select,
+.rx-builder input {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 43px;
+  padding: 9px 10px !important;
+  font-size: 12px !important;
+}
+
+.rx-add-medicine {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 10px !important;
+}
+
+.rx-cart { margin-top: 12px !important; }
+.rx-cart-items { max-height: 260px; overflow-y: auto; }
+
+#prescription-form > .primary-btn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px !important;
+  font-size: 13px;
+}
+
+.action-footer {
+  grid-area: footer;
+  position: sticky !important;
+  bottom: 0;
+  justify-content: flex-end;
+  padding: 11px 18px !important;
+  border-radius: 0 0 11px 0;
+  box-shadow: 0 -5px 15px rgba(24, 58, 82, .05);
+}
+
+@media (max-width: 1100px) {
+  .rx-builder {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .rx-builder > :first-child,
+  .rx-builder > :last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 850px) {
+  .work-card {
+    display: block;
+  }
+
+  .tabbar {
+    position: static;
+    min-height: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid #e1e9ee !important;
+    border-radius: 11px 11px 0 0;
+  }
+
+  .tabbar::before { display: none; }
+  .tabbar button { flex: 0 0 auto; width: auto; }
+  .pane[data-pane="summary"] .two-col,
+  .pane[data-pane="prescription"] .two-col { grid-template-columns: 1fr !important; }
+  .action-footer { border-radius: 0 0 11px 11px; }
+}
+
+@media (max-width: 560px) {
+  .pane { padding: 16px !important; }
+  .patient-facts { grid-template-columns: repeat(2, 1fr) !important; }
+  .rx-builder { grid-template-columns: 1fr !important; }
+  .rx-builder > * { grid-column: auto !important; }
+}
