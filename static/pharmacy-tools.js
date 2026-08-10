@@ -47,10 +47,10 @@
   const add = document.createElement('button'); add.type = 'button'; add.className = 'pos-add-line'; add.textContent = '+ Add another medicine';
   add.onclick = () => {
     const row = document.createElement('div'); row.className = 'pos-extra-line';
-    const select = medicine.cloneNode(true); select.value = '';
+    const select = medicine.cloneNode(true); select.selectedIndex = 0;
     const input = quantity.cloneNode(true); input.value = '1';
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.onclick = () => row.remove();
-    const rowPreview = document.createElement('small'); rowPreview.textContent = 'Batch and invoice details are selected automatically at billing.';
+    const rowPreview = document.createElement('small'); rowPreview.textContent = 'Medicine';
     row.append(select, input, remove, rowPreview); lines.append(row);
   };
   if (prescription?.items?.length > 1) {
@@ -59,7 +59,7 @@
       const select = medicine.cloneNode(true); select.value = String(item.medicine_id); select.name = 'medicine_id';
       const input = quantity.cloneNode(true); input.value = String(item.quantity); input.name = 'quantity';
       const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.onclick = () => row.remove();
-      const rowPreview = document.createElement('small'); rowPreview.textContent = 'Added automatically from the doctor prescription.';
+      const rowPreview = document.createElement('small'); rowPreview.textContent = 'Prescribed medicine';
       row.append(select, input, remove, rowPreview); lines.append(row);
     });
   }

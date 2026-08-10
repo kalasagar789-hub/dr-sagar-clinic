@@ -73,3 +73,133 @@
   .pd-nav-title { display: none; }
   .pd-nav { border-radius: 0 !important; }
 }
+
+/* Clear, full-width counter billing form. */
+.pd-pos { padding: 20px; }
+
+.pd-pos .pos-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.1fr) minmax(300px, 1.7fr) 110px 130px minmax(150px, .8fr);
+  gap: 14px 10px;
+  align-items: end;
+}
+
+.pd-pos .pos-grid > label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: #3f5c73;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pd-pos .pos-grid select,
+.pd-pos .pos-grid input {
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  border-color: #cfdce7;
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: #153854;
+  font-size: 12px;
+}
+
+.pd-pos .pos-medicine-preview {
+  grid-column: 1 / -1;
+  padding: 13px 15px;
+  border-radius: 9px;
+}
+
+.pd-pos .pos-add-line {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-width: 170px;
+  min-height: 40px;
+  border: 1px solid #0a9677 !important;
+  border-radius: 7px;
+  background: #effbf7 !important;
+  color: #08785f !important;
+}
+
+.pd-pos .pos-extra-lines {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 9px;
+}
+
+.pd-pos .pos-extra-lines:not(:empty)::before {
+  content: "Additional medicines";
+  color: #244a68;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pd-pos .pos-extra-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 90px;
+  gap: 10px;
+  align-items: center;
+  padding: 13px 12px 11px;
+  border: 1px solid #dce7ee;
+  border-radius: 9px;
+  background: #f8fbfd;
+}
+
+.pd-pos .pos-extra-line::before {
+  content: "Medicine";
+  position: absolute;
+  top: -7px;
+  left: 13px;
+  padding: 0 5px;
+  background: #f8fbfd;
+  color: #627a8e;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.pd-pos .pos-extra-line select,
+.pd-pos .pos-extra-line input {
+  min-height: 40px;
+  border: 1px solid #cfdce7;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.pd-pos .pos-extra-line button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 7px;
+  background: #fdeaea;
+  color: #b72f38;
+  font-weight: 800;
+}
+
+.pd-pos .pos-extra-line small { display: none; }
+
+.pd-pos .pos-grid > button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-width: 230px;
+  min-height: 44px;
+  margin-top: 2px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+@media (max-width: 1050px) {
+  .pd-pos .pos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pd-pos .pos-medicine-preview,
+  .pd-pos .pos-add-line,
+  .pd-pos .pos-extra-lines,
+  .pd-pos .pos-grid > button[type="submit"] { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .pd-pos .pos-grid { grid-template-columns: 1fr; }
+  .pd-pos .pos-extra-line { grid-template-columns: 1fr 90px; }
+  .pd-pos .pos-extra-line select { grid-column: 1 / -1; }
+  .pd-pos .pos-grid > button[type="submit"] { width: 100%; min-width: 0; }
+}
