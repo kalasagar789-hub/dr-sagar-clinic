@@ -166,30 +166,65 @@ main:has(.consult-page) {
 }
 
 .pane[data-pane="prescription"] .two-col {
-  grid-template-columns: minmax(0, 1fr) 285px !important;
-  gap: 16px !important;
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px !important;
 }
 
 .pane[data-pane="prescription"] .rx-sticky {
   position: static !important;
+  padding: 20px !important;
+  border: 1px solid #cfdfE8 !important;
   background: #fff !important;
+  box-shadow: 0 7px 20px rgba(20, 58, 86, .06);
 }
 
 .pane[data-pane="prescription"] .two-col > .section-box:last-child {
-  max-height: 640px;
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-height: none;
+  overflow: visible;
+  padding: 16px !important;
+  background: #f7fafc !important;
+}
+
+.pane[data-pane="prescription"] .two-col > .section-box:last-child > h4 {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+}
+
+.pane[data-pane="prescription"] .two-col > .section-box:last-child > p {
+  grid-column: 1 / -1;
+}
+
+.pane[data-pane="prescription"] .rx-item {
+  min-width: 0;
+  margin: 0;
+  padding: 11px 12px;
+  background: #fff;
 }
 
 .drug-search {
   min-height: 44px;
-  margin-bottom: 10px !important;
+  margin-bottom: 14px !important;
+  border: 1px solid #9fc8df !important;
   background: #f7fbfe;
+  font-size: 14px !important;
 }
 
 .rx-template-box {
-  margin-bottom: 12px !important;
-  padding: 12px !important;
+  display: grid;
+  grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+  gap: 10px 16px;
+  margin-bottom: 15px !important;
+  padding: 14px !important;
 }
+
+.rx-template-box .rx-template-heading { grid-column: 1 / -1; margin-bottom: 0; }
+.rx-template-box > label { grid-column: 1; }
+.rx-template-box .rx-template-suggestions { grid-column: 2; align-content: end; margin-top: 0; }
+.rx-template-box .rx-template-preview { grid-column: 1 / -1; }
 
 .rx-template-preview { max-height: 78px; overflow-y: auto; }
 
@@ -198,6 +233,10 @@ main:has(.consult-page) {
   grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
   gap: 9px !important;
   align-items: end;
+  padding: 16px;
+  border: 1px solid #d9e6ec;
+  border-radius: 10px;
+  background: linear-gradient(105deg, #f8fcff, #f7fdfa);
 }
 
 .rx-builder .rx-field { display:flex;min-width:0;flex-direction:column;gap:6px;color:#405d73;font-size:11px;font-weight:900; }
@@ -219,18 +258,29 @@ main:has(.consult-page) {
 
 .rx-add-medicine {
   width: 100%;
-  min-height: 42px;
+  min-height: 45px;
   margin-top: 10px !important;
+  border-style: solid !important;
+  background: #e9f8f3 !important;
+  font-size: 13px !important;
 }
 
-.rx-cart { margin-top: 12px !important; }
-.rx-cart-items { max-height: 260px; overflow-y: auto; }
+.rx-cart { margin-top: 14px !important; border-color: #b9ddd5 !important; }
+.rx-cart-items { max-height: none; overflow: visible; }
+.rx-cart-empty { min-height: 54px; display:grid; place-items:center; }
 
 #prescription-form > .primary-btn {
   width: 100%;
   min-height: 46px;
   margin-top: 12px !important;
   font-size: 13px;
+  background: linear-gradient(100deg, #0a927d, #1268b4) !important;
+  box-shadow: 0 8px 18px rgba(18, 104, 180, .18);
+}
+
+.pane[data-pane="prescription"] .info-box {
+  margin-top: 12px;
+  text-align: center;
 }
 
 .action-footer {
@@ -247,6 +297,7 @@ main:has(.consult-page) {
   .rx-builder .rx-field-dose,.rx-builder .rx-field-duration { grid-column:span 6; }
   .rx-builder .rx-field-quantity { grid-column:span 3; }
   .rx-builder .rx-field-instructions { grid-column:span 9; }
+  .pane[data-pane="prescription"] .two-col > .section-box:last-child { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
 @media (max-width: 850px) {
@@ -269,6 +320,8 @@ main:has(.consult-page) {
   .pane[data-pane="summary"] .two-col,
   .pane[data-pane="prescription"] .two-col { grid-template-columns: 1fr !important; }
   .action-footer { border-radius: 0 0 11px 11px; }
+  .rx-template-box { display:block; }
+  .rx-template-box .rx-template-suggestions { margin-top:10px; }
 }
 
 @media (max-width: 560px) {
@@ -276,4 +329,5 @@ main:has(.consult-page) {
   .patient-facts { grid-template-columns: repeat(2, 1fr) !important; }
   .rx-builder { grid-template-columns: 1fr !important; }
   .rx-builder > *, .rx-builder .rx-field { grid-column: auto !important; }
+  .pane[data-pane="prescription"] .two-col > .section-box:last-child { grid-template-columns:1fr; }
 }
