@@ -1759,6 +1759,21 @@ def pharmacy():
         "patient": pos_rx.patient.user.name,
         "items": [{"medicine_id": item.medicine_id, "quantity": item.quantity} for item in pos_rx.items],
     } if pos_rx else None)
+    pos_prescriptions_payload = {}
+    for rx in pending_prescriptions:
+        if str(rx.patient_id) in pos_prescriptions_payload:
+            continue
+        pos_prescriptions_payload[str(rx.patient_id)] = {
+            "id": rx.id, "patient_id": rx.patient_id, "patient": rx.patient.user.name,
+            "doctor": rx.doctor.name, "created": rx.created_at.strftime("%d %b %Y, %I:%M %p"),
+            "notes": rx.notes or "", "items": [{
+                "medicine_id": item.medicine_id, "name": item.medicine.name,
+                "strength": item.medicine.strength or "", "quantity": item.quantity,
+                "dosage": item.dosage or "As directed", "duration": item.duration or "As directed",
+                "instructions": item.instructions or "", "stock": item.medicine.stock,
+                "unit_price": item.medicine.unit_price,
+            } for item in rx.items],
+        }
     pharmacy_invoices = Invoice.query.filter(Invoice.category.in_(["Pharmacy", "Pharmacy POS"])).order_by(Invoice.created_at.desc()).limit(8).all()
     today_invoices = [invoice for invoice in pharmacy_invoices if invoice.created_at.date() == today]
     today_sales = round(sum(invoice.amount for invoice in today_invoices), 2)
@@ -1767,6 +1782,7 @@ def pharmacy():
         expiring_batches=expiring_batches, today=today, prescriptions=pending_prescriptions,
         selected_rx=selected_rx, pharmacy_invoices=pharmacy_invoices, today_invoices=today_invoices,
         today_sales=today_sales, stock_units=stock_units, pos_rx_payload=pos_rx_payload,
+        pos_prescriptions_payload=pos_prescriptions_payload,
         patients=Patient.query.order_by(Patient.mrn).all(),
         active_tab=request.args.get("tab", "dispense"))
 

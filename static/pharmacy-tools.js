@@ -1,68 +1,55 @@
 (() => {
   const pharmacyHero = document.querySelector('.pharm-hero > div:last-child');
   if (pharmacyHero && !pharmacyHero.querySelector('.collections-link')) {
-    const link = document.createElement('a');
-    link.className = 'collections-link';
-    link.href = '/billing/collections';
-    link.textContent = 'Payments & collections';
-    pharmacyHero.append(link);
+    const link = document.createElement('a'); link.className = 'collections-link'; link.href = '/billing/collections'; link.textContent = 'Payments & collections'; pharmacyHero.append(link);
   }
-  document.querySelectorAll('.pharm-hero a[href="#add-batch"], .pharm-hero a[href="#new-medicine"]').forEach(link => link.addEventListener('click', event => {
-    event.preventDefault(); location.href = `/pharmacy?tab=stock${link.getAttribute('href')}`;
-  }));
+  document.querySelectorAll('.pharm-hero a[href="#add-batch"], .pharm-hero a[href="#new-medicine"]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); location.href = `/pharmacy?tab=stock${link.getAttribute('href')}`; }));
   const form = document.querySelector('form.pos-grid');
   if (!form) return;
+  const patient = form.querySelector('select[name="patient_id"]');
   const medicine = form.querySelector('select[name="medicine_id"]');
   const quantity = form.querySelector('input[name="quantity"]');
-  if (!medicine || !quantity) return;
-  const prescription = window.PHARMACY_RX;
-  const patient = form.querySelector('select[name="patient_id"]');
-  if (prescription && patient) {
-    patient.value = String(prescription.patient_id);
-    const firstItem = prescription.items?.[0];
-    if (firstItem) {
-      medicine.value = String(firstItem.medicine_id);
-      quantity.value = String(firstItem.quantity);
+  if (!patient || !medicine || !quantity) return;
+  const prescriptions = window.PHARMACY_PATIENT_PRESCRIPTIONS || {};
+  const opened = window.PHARMACY_RX;
+  if (opened) patient.value = String(opened.patient_id);
+
+  const medicineLabel = medicine.closest('label');
+  const quantityLabel = quantity.closest('label');
+  const rxPanel = document.createElement('section'); rxPanel.className = 'pos-prescription-panel';
+  const manualNotice = document.createElement('div'); manualNotice.className = 'pos-manual-notice';
+  const hiddenLines = document.createElement('div'); hiddenLines.className = 'pos-rx-hidden-lines';
+  form.insertBefore(rxPanel, medicineLabel);
+  form.insertBefore(manualNotice, medicineLabel);
+  form.append(hiddenLines);
+
+  const prescriptionInput = document.createElement('input'); prescriptionInput.type = 'hidden'; prescriptionInput.name = 'prescription_id'; form.append(prescriptionInput);
+  const money = value => `₹${Number(value || 0).toFixed(2)}`;
+  const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+  const showPatientPrescription = () => {
+    const rx = prescriptions[String(patient.value)];
+    hiddenLines.innerHTML = '';
+    if (!rx) {
+      prescriptionInput.value = '';
+      rxPanel.hidden = true; manualNotice.hidden = false;
+      manualNotice.innerHTML = '<b>No pending doctor prescription</b><span>This patient has no pending prescription. Use manual medicine entry only for a walk-in counter sale.</span>';
+      medicineLabel.hidden = false; quantityLabel.hidden = false;
+      medicine.disabled = false; quantity.disabled = false;
+      return;
     }
-    let prescriptionId = form.querySelector('input[name="prescription_id"]');
-    if (!prescriptionId) {
-      prescriptionId = document.createElement('input');
-      prescriptionId.type = 'hidden';
-      prescriptionId.name = 'prescription_id';
-      form.append(prescriptionId);
-    }
-    prescriptionId.value = String(prescription.id);
-  }
-  const preview = document.createElement('section'); preview.className = 'pos-medicine-preview'; preview.innerHTML = '<b>Medicine invoice details</b><span>Select a medicine to load batch, expiry, MRP, GST and stock.</span>';
-  form.insertBefore(preview, form.firstChild.nextSibling);
-  const loadDetails = () => {
-    if (!medicine.value) return;
-    fetch(`/api/pharmacy/medicine/${medicine.value}/billing-details`).then(r => r.json()).then(data => {
-      const qty = Number(quantity.value || 1); const value = qty * Number(data.price || 0);
-      preview.innerHTML = `<b>${data.name} ${data.strength}</b><span>Batch: ${data.batch} · Expiry: ${data.expiry} · Available: ${data.available}</span><span>MRP: ₹${Number(data.mrp).toFixed(2)} · GST: ${data.gst}% · Line amount: ₹${value.toFixed(2)}</span>`;
-    }).catch(() => {});
+    prescriptionInput.value = String(rx.id);
+    medicineLabel.hidden = true; quantityLabel.hidden = true; medicine.disabled = true; quantity.disabled = true; manualNotice.hidden = true; rxPanel.hidden = false;
+    let total = 0;
+    const rows = rx.items.map(item => {
+      total += Number(item.unit_price || 0) * Number(item.quantity || 0);
+      hiddenLines.insertAdjacentHTML('beforeend', `<input type="hidden" name="medicine_id" value="${item.medicine_id}"><input type="hidden" name="quantity" value="${item.quantity}">`);
+      const stockClass = Number(item.stock) >= Number(item.quantity) ? 'available' : 'short';
+      const stockText = stockClass === 'available' ? `${item.stock} in stock` : `Only ${item.stock} available`;
+      return `<tr><td><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.strength)}</small></td><td>${escapeHtml(item.dosage)}</td><td>${escapeHtml(item.duration)}</td><td>${item.quantity}</td><td><span class="${stockClass}">${stockText}</span></td><td>${money(Number(item.unit_price) * Number(item.quantity))}</td></tr>`;
+    }).join('');
+    rxPanel.innerHTML = `<header><div><small>DOCTOR PRESCRIPTION · RX-${String(rx.id).padStart(6,'0')}</small><h3>${escapeHtml(rx.patient)}'s prescribed medicines</h3><p>Prescribed by ${escapeHtml(rx.doctor)} · ${escapeHtml(rx.created)}</p></div><strong>Pending dispense</strong></header><div class="pos-rx-table-wrap"><table><thead><tr><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Qty</th><th>Stock</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></div>${rx.notes ? `<p class="pos-rx-notes"><b>Doctor notes:</b> ${escapeHtml(rx.notes)}</p>` : ''}<footer><span>Prescription total</span><b>${money(total)}</b></footer>`;
   };
-  medicine.addEventListener('change', loadDetails); quantity.addEventListener('input', loadDetails); loadDetails();
-  const lines = document.createElement('div'); lines.className = 'pos-extra-lines';
-  const add = document.createElement('button'); add.type = 'button'; add.className = 'pos-add-line'; add.textContent = '+ Add another medicine';
-  add.onclick = () => {
-    const row = document.createElement('div'); row.className = 'pos-extra-line';
-    const select = medicine.cloneNode(true); select.selectedIndex = 0;
-    const input = quantity.cloneNode(true); input.value = '1';
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.onclick = () => row.remove();
-    const rowPreview = document.createElement('small'); rowPreview.textContent = 'Medicine';
-    row.append(select, input, remove, rowPreview); lines.append(row);
-  };
-  if (prescription?.items?.length > 1) {
-    prescription.items.slice(1).forEach(item => {
-      const row = document.createElement('div'); row.className = 'pos-extra-line';
-      const select = medicine.cloneNode(true); select.value = String(item.medicine_id); select.name = 'medicine_id';
-      const input = quantity.cloneNode(true); input.value = String(item.quantity); input.name = 'quantity';
-      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.onclick = () => row.remove();
-      const rowPreview = document.createElement('small'); rowPreview.textContent = 'Prescribed medicine';
-      row.append(select, input, remove, rowPreview); lines.append(row);
-    });
-  }
-  form.insertBefore(lines, form.querySelector('button[type="submit"]'));
-  form.insertBefore(add, lines);
+  patient.addEventListener('change', showPatientPrescription);
+  showPatientPrescription();
 })();
