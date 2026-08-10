@@ -1,0 +1,110 @@
+:root {
+  --ui-sidebar: 235px;
+  --ui-bg: #f5f8fa;
+  --ui-surface: #fff;
+  --ui-surface-soft: #f8fbfc;
+  --ui-ink: #17344e;
+  --ui-muted: #6c8194;
+  --ui-line: #dce6ed;
+  --ui-primary: #0a927d;
+  --ui-primary-dark: #087361;
+  --ui-blue: #1565b5;
+  --ui-danger: #bd3943;
+  --ui-warning: #b96a0a;
+  --ui-radius: 11px;
+  --ui-shadow: 0 5px 18px rgba(20, 55, 80, .07);
+  --ui-space: 16px;
+}
+
+html, body { max-width: 100%; overflow-x: clip; }
+body { background: var(--ui-bg); color: var(--ui-ink); }
+
+/* Only direct body children form the application shell. */
+body > aside {
+  box-sizing: border-box;
+  width: var(--ui-sidebar);
+}
+
+body > main {
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+}
+
+body > main:not(.auth) { width: 100%; }
+body:has(> aside) > main:not(.auth) { width: calc(100% - var(--ui-sidebar)); }
+body > main.auth { width: 100%; }
+
+/* Nested semantic elements are content, never another application shell. */
+body > main main {
+  position: static;
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+body > main aside:not(.admin-persistent-nav) {
+  position: static;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+}
+
+body > main > header { min-width: 0; }
+body > main > * { min-width: 0; }
+
+img, svg, video, canvas { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; }
+input, select, textarea { box-sizing: border-box; }
+
+/* Shared professional component language. */
+.card, .panel,
+[class$="-card"], [class*="-card "] {
+  border-color: var(--ui-line);
+}
+
+button, .button,
+input, select, textarea { font-family: Inter, "Segoe UI", Arial, sans-serif; }
+
+button, .button { min-height: 40px; }
+input, select { min-height: 42px; }
+textarea { line-height: 1.45; }
+
+:focus-visible {
+  outline: 3px solid rgba(21, 101, 181, .22);
+  outline-offset: 1px;
+}
+
+.flash { box-shadow: var(--ui-shadow); }
+
+/* Tables remain usable on constrained screens without widening the page. */
+.table-scroll, .inventory-scroll, .pharm-scroll, .pd-table-wrap,
+.result-table-wrap, .bulk-body { max-width: 100%; overflow-x: auto; }
+
+table { max-width: 100%; }
+td, th { overflow-wrap: anywhere; }
+
+/* Common grids may shrink rather than force horizontal overflow. */
+.grid > *, .metrics > *, .kpi-grid > *, .lab-kpis > *,
+.appointment-kpis > *, .pd-kpis > *, .inventory-kpis > * { min-width: 0; }
+
+@media (max-width: 1100px) {
+  :root { --ui-space: 14px; }
+}
+
+@media (max-width: 900px) {
+  body > aside { width: 100%; }
+  body > main:not(.auth) { width: 100%; }
+}
+
+@media (max-width: 600px) {
+  :root { --ui-radius: 9px; --ui-space: 12px; }
+  button, .button { min-height: 44px; }
+  input, select { min-height: 44px; }
+}
