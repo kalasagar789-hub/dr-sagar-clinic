@@ -1443,6 +1443,98 @@ def save_lab_parameters(order_id):
     previous = order.status; order.status = "Draft Saved"; db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status=previous, new_status=order.status, action="parameter_result_save")); db.session.commit()
     return jsonify({"ok": True})
 
+@app.get("/api/lab-patients/<int:patient_id>/result-worklist")
+@login_required
+@roles("lab", "admin")
+def lab_patient_result_worklist(patient_id):
+    """Return all unfinished tests for one patient so they can be entered together."""
+    patient = db.session.get(Patient, patient_id) or abort(404)
+    orders = LabOrder.query.filter(
+        LabOrder.patient_id == patient.id,
+        LabOrder.status.notin_(["Finalised", "Cancelled", "Sample Rejected"]),
+    ).order_by(LabOrder.ordered_at, LabOrder.id).all()
+    payload = []
+    for order in orders:
+        existing = {item.parameter_id: item for item in order.parameter_results}
+        parameters = lab_parameters_for(order.test_name)
+        payload.append({
+            "id": order.id,
+            "test_name": order.test_name,
+            "status": order.status,
+            "sample_ready": bool(order.sample and order.sample.condition == "Acceptable"),
+            "result_value": order.result_value or "",
+            "reference_range": order.reference_range or "",
+            "remarks": order.remarks or "",
+            "parameters": [{
+                "id": parameter.id, "name": parameter.name, "unit": parameter.unit or "",
+                "reference": parameter.reference_range or "Reference not configured",
+                "value": existing[parameter.id].value if parameter.id in existing else "",
+                "flag": existing[parameter.id].flag if parameter.id in existing else "",
+            } for parameter in parameters],
+        })
+    return jsonify({"ok": True, "patient": {"id": patient.id, "name": patient.user.name, "mrn": patient.mrn}, "orders": payload})
+
+@app.post("/api/lab-patients/<int:patient_id>/result-worklist")
+@login_required
+@roles("lab", "admin")
+def save_lab_patient_result_worklist(patient_id):
+    """Save or submit several tests from the laboratory result-entry popup."""
+    patient = db.session.get(Patient, patient_id) or abort(404)
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "save")
+    entries = data.get("orders", [])
+    if action not in {"save", "submit"} or not isinstance(entries, list) or not entries:
+        return jsonify({"ok": False, "message": "Choose at least one test result to save."}), 400
+    updated = 0
+    try:
+        for entry in entries:
+            order = db.session.get(LabOrder, int(entry.get("id")))
+            if not order or order.patient_id != patient.id or order.status in {"Finalised", "Cancelled", "Sample Rejected"}:
+                continue
+            previous = order.status
+            configured = lab_parameters_for(order.test_name)
+            allowed_parameters = {parameter.id: parameter for parameter in configured}
+            supplied = entry.get("parameters", []) if isinstance(entry.get("parameters", []), list) else []
+            for row in supplied:
+                parameter = allowed_parameters.get(int(row.get("id")))
+                if not parameter:
+                    continue
+                result = LabParameterResult.query.filter_by(order_id=order.id, parameter_id=parameter.id).first() or LabParameterResult(order_id=order.id, parameter_id=parameter.id)
+                result.value = str(row.get("value", "")).strip()
+                result.flag = ""
+                try:
+                    bounds = [float(value.strip()) for value in parameter.reference_range.replace("–", "-").split("-")]
+                    numeric = float(result.value)
+                    if len(bounds) == 2:
+                        result.flag = "L" if numeric < bounds[0] else "H" if numeric > bounds[1] else "Normal"
+                except (ValueError, TypeError, AttributeError):
+                    pass
+                db.session.add(result)
+            if not configured:
+                order.result_value = str(entry.get("result_value", "")).strip()
+                order.reference_range = str(entry.get("reference_range", "")).strip()
+            order.remarks = str(entry.get("remarks", "")).strip() or None
+            if action == "submit":
+                if not order.sample or order.sample.condition != "Acceptable":
+                    raise ValueError(f"Collect an acceptable sample for {order.test_name} before submitting.")
+                completed = sum(bool((item.value or "").strip()) for item in order.parameter_results)
+                if (configured and completed < len(configured)) or (not configured and not (order.result_value or "").strip()):
+                    raise ValueError(f"Complete all required values for {order.test_name} before submitting.")
+                order.status = "Verification Pending"
+                audit_action = "Bulk result entry submitted for verification"
+            else:
+                order.status = "Draft Saved"
+                audit_action = "Bulk result entry saved"
+            db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status=previous, new_status=order.status, action=audit_action, reason=order.remarks))
+            updated += 1
+        if not updated:
+            raise ValueError("No editable laboratory tests were found for this patient.")
+        db.session.commit()
+    except (ValueError, TypeError) as error:
+        db.session.rollback()
+        return jsonify({"ok": False, "message": str(error) or "Unable to save results."}), 400
+    return jsonify({"ok": True, "updated": updated, "message": f"{updated} test result(s) {'submitted for verification' if action == 'submit' else 'saved as draft'}."})
+
 @app.post("/api/lab-parameters/<int:parameter_id>/reference-range")
 @login_required
 @roles("admin")
