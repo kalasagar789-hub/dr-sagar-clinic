@@ -6,9 +6,11 @@
   const selectedOrderId = window.LAB_ORDER_ID;
   if (!patientId && !selectedOrderId) return;
 
-  const launch = document.createElement('button');
-  launch.type = 'button'; launch.className = 'bulk-results-launch'; launch.textContent = 'Enter all patient results';
-  selectedHeader.append(launch);
+  const launch = document.querySelector('.lab-v2-result-action .bulk-results-launch') || document.createElement('button');
+  if (!launch.isConnected) {
+    launch.type = 'button'; launch.className = 'bulk-results-launch'; launch.textContent = 'Enter all patient results';
+    selectedHeader.append(launch);
+  }
   const modal = document.createElement('section'); modal.className = 'bulk-modal'; modal.hidden = true;
   modal.innerHTML = '<div class="bulk-dialog" role="dialog" aria-modal="true" aria-labelledby="bulk-results-title"><header class="bulk-head"><div><h2 id="bulk-results-title">Result entry</h2><p>Loading patient worklist…</p></div><button class="bulk-close" type="button" aria-label="Close result entry">×</button></header><main class="bulk-body"></main><footer class="bulk-footer"><span class="bulk-status">Enter results, then save a draft or submit all completed tests.</span><button type="button" class="bulk-save">Save draft</button><button type="button" class="bulk-submit">Submit for verification</button></footer></div>';
   document.body.append(modal);

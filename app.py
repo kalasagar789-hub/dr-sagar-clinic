@@ -1340,8 +1340,19 @@ def labs():
         db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status=previous, new_status=order.status, action=action, reason=request.form.get("notes"))); db.session.commit(); flash(message, "success")
         return redirect(url_for("labs", order_id=order.id))
     metrics = {"new": sum(order.status == "Ordered" for order in orders), "sample": sum(order.status in ["Ordered", "Sample Pending"] for order in orders), "collected": sum(order.status == "Sample Collected" for order in orders), "pending": sum(order.status == "Verification Pending" for order in orders), "completed": sum(order.status == "Finalised" for order in orders)}
+    # The laboratory opens around a patient, not around a single isolated test.
+    # Keep all of a patient's requested tests together for the worklist and the
+    # full-screen result-entry action.
+    patient_worklist = []
+    grouped = {}
+    for order in orders:
+        if order.patient_id not in grouped:
+            grouped[order.patient_id] = {"patient": order.patient, "orders": []}
+            patient_worklist.append(grouped[order.patient_id])
+        grouped[order.patient_id]["orders"].append(order)
+    patient_orders = [order for order in orders if selected and order.patient_id == selected.patient_id]
     selected = prepare_lab_order_display(selected)
-    return render_template("labs.html", orders=orders, selected=selected, metrics=metrics, previous=LabOrder.query.filter(LabOrder.patient_id == selected.patient_id, LabOrder.test_name == selected.test_name, LabOrder.id != selected.id, LabOrder.status == "Finalised").order_by(LabOrder.completed_at.desc()).first() if selected else None)
+    return render_template("labs.html", orders=orders, selected=selected, metrics=metrics, previous=LabOrder.query.filter(LabOrder.patient_id == selected.patient_id, LabOrder.test_name == selected.test_name, LabOrder.id != selected.id, LabOrder.status == "Finalised").order_by(LabOrder.completed_at.desc()).first() if selected else None, patient_worklist=patient_worklist[:30], patient_orders=patient_orders)
 
 @app.get("/lab-orders/<int:order_id>/whatsapp-report")
 @login_required
