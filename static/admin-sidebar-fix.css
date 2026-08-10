@@ -2,8 +2,24 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  top: 0;
+  bottom: 0;
+  height: auto;
+  min-height: 0;
+  padding: 20px 14px;
   overflow: hidden;
+}
+
+.admin-persistent-nav > .brand {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.admin-persistent-nav > .brand b { font-size: 27px; }
+
+.admin-persistent-nav > .role {
+  margin: 22px 8px 10px;
+  font-size: 13px;
 }
 
 .admin-persistent-nav > nav {
@@ -11,8 +27,17 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  overflow-y: auto;
-  padding-bottom: 8px;
+  overflow: hidden;
+  padding: 2px 0 0;
+}
+
+.admin-persistent-nav > nav > a {
+  min-height: 0;
+  margin: 2px 0;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .admin-persistent-nav > nav .admin-signout {
@@ -20,6 +45,12 @@
   border-top: 1px solid rgba(218, 235, 250, .18);
   border-radius: 0;
   color: #ffd8d8 !important;
+}
+
+body:has(.laboratory-topbar) .admin-persistent-nav {
+  top: 76px !important;
+  bottom: 0;
+  height: auto;
 }
 
 .admin-persistent-nav > nav .admin-signout:hover {
