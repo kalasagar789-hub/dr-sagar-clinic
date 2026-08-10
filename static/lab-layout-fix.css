@@ -1,12 +1,48 @@
 .lab-v2-layout {
   display: grid;
-  grid-template-columns: 270px minmax(0, 1fr);
-  grid-template-areas: "tests detail" "tests summary";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "tests" "detail" "summary";
   gap: 16px;
   align-items: start;
 }
 
-.lab-requested-tests { grid-area: tests; position: sticky !important; top: 92px; }
+.lab-requested-tests {
+  grid-area: tests;
+  position: static !important;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+  padding-bottom: 14px !important;
+}
+
+.lab-requested-tests > .lab-v2-section-title,
+.lab-requested-tests > .requested-list {
+  grid-column: 1 / -1;
+}
+
+.lab-requested-tests > .requested-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-height: none;
+  padding: 12px 16px;
+}
+
+.lab-requested-tests .requested-test {
+  min-height: 62px;
+  margin: 0;
+  border-color: #dce8ef;
+}
+
+.lab-requested-tests .walkin-register,
+.lab-requested-tests .direct-lab-order {
+  box-sizing: border-box;
+  width: auto;
+  margin: 0 16px !important;
+}
+
+.lab-requested-tests .walkin-register { margin-right: 0 !important; }
+.lab-requested-tests .direct-lab-order { margin-left: 0 !important; }
 
 .lab-v2-detail {
   grid-area: detail;
@@ -58,7 +94,7 @@
 
 @media (max-width: 1250px) {
   .lab-v2-layout {
-    grid-template-columns: 245px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .lab-v2-summary {
@@ -73,7 +109,10 @@
     grid-template-areas: "tests" "detail" "summary";
   }
 
-  .lab-requested-tests { position: static !important; }
+  .lab-requested-tests { grid-template-columns: 1fr; }
+  .lab-requested-tests > .requested-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lab-requested-tests .walkin-register,
+  .lab-requested-tests .direct-lab-order { margin: 7px 14px !important; }
   .lab-v2-summary { grid-template-columns: 1fr; }
   .lab-v2-summary .summary-block { border-right: 0; border-bottom: 1px solid #e7eff3; }
 
@@ -105,6 +144,7 @@ body:has(.admin-persistent-nav) main:has(.lab-page) { box-sizing: border-box; ov
 }
 
 @media (max-width: 560px) {
+  .lab-requested-tests > .requested-list { grid-template-columns: 1fr; }
   .lab-v2-step .lab-form-grid {
     grid-template-columns: 1fr;
   }
