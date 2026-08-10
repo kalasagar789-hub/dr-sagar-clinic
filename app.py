@@ -1056,6 +1056,7 @@ def patient_flow():
 @roles("admin", "reception", "doctor", "lab", "pharmacy", "dietician")
 def patient_journey(patient_id):
     patient = db.session.get(Patient, patient_id) or abort(404)
+    patients = Patient.query.order_by(Patient.mrn).all()
     appointments = Appointment.query.filter_by(patient_id=patient.id).order_by(Appointment.scheduled_at.desc()).all()
     latest = appointments[0] if appointments else None
     note = latest.encounter if latest else None
@@ -1066,7 +1067,18 @@ def patient_journey(patient_id):
     # registered patient an empty read-only prescription shape rather than
     # passing None, so the overview remains available before the first Rx.
     prescription = prescriptions[0] if prescriptions else SimpleNamespace(items=[], dispensed=False)
-    return render_template("patient_journey.html", patient=patient, latest=latest, note=note, labs=labs, prescription=prescription, invoice=invoices[0] if invoices else None)
+    return render_template("patient_journey.html", patients=patients, patient=patient, latest=latest, note=note, labs=labs, prescription=prescription, invoice=invoices[0] if invoices else None)
+
+@app.get("/patients")
+@login_required
+@roles("admin", "reception", "doctor", "lab", "pharmacy", "dietician")
+def patient_overview():
+    selected_id = request.args.get("patient_id", type=int)
+    patient = db.session.get(Patient, selected_id) if selected_id else Patient.query.order_by(Patient.mrn).first()
+    if not patient:
+        flash("No patients have been registered yet.", "warning")
+        return redirect(url_for("appointments"))
+    return redirect(url_for("patient_journey", patient_id=patient.id))
 
 @app.get("/appointments/<int:appointment_id>/whatsapp-reminder")
 @login_required
@@ -1799,7 +1811,14 @@ def pharmacy_billing_details(medicine_id):
 @roles("dietician", "admin")
 def dietician_workspace():
     patients = Patient.query.order_by(Patient.mrn).all()
-    selected_id = request.form.get("patient_id", type=int) or request.args.get("patient_id", type=int) or (patients[0].id if patients else None)
+    referrals = DieticianReferral.query.filter(DieticianReferral.status.notin_(["Completed", "Closed"])).order_by(DieticianReferral.created_at.desc()).all()
+    doctor_diet_appointments = Appointment.query.filter(Appointment.reason.ilike("%diet%"), Appointment.doctor.has(User.role == "doctor")).order_by(Appointment.scheduled_at).all()
+    direct_queue_query = Appointment.query.filter(Appointment.doctor.has(User.role == "dietician"))
+    if current_user.role == "dietician":
+        direct_queue_query = direct_queue_query.filter_by(doctor_id=current_user.id)
+    direct_queue = direct_queue_query.order_by(Appointment.scheduled_at).all()
+    queue_patient_ids = [item.patient_id for item in referrals] + [item.patient_id for item in doctor_diet_appointments] + [item.patient_id for item in direct_queue]
+    selected_id = request.form.get("patient_id", type=int) or request.args.get("patient_id", type=int) or (queue_patient_ids[0] if queue_patient_ids else (patients[0].id if patients else None))
     patient = db.session.get(Patient, selected_id) if selected_id else None
     assessment = NutritionAssessment.query.filter_by(patient_id=selected_id).order_by(NutritionAssessment.updated_at.desc()).first() if patient else None
     if request.method == "POST" and patient:
@@ -1847,9 +1866,7 @@ def dietician_workspace():
             db.session.add(NutritionProgress(patient_id=patient.id, dietician_id=current_user.id, weight_kg=request.form.get("progress_weight", type=float), adherence=request.form.get("adherence", type=int), notes=request.form.get("progress_notes"))); db.session.commit(); flash("Progress updated.", "success")
         target_tab = "plan" if action in ("generate_plan", "create_manual_plan", "sign_plan") else "progress" if action == "add_progress" else "assessment"
         return redirect(url_for("dietician_workspace", patient_id=patient.id, tab=target_tab))
-    queue_query = Appointment.query.filter((Appointment.reason.ilike("%diet%")) | (Appointment.doctor.has(User.role == "dietician")))
-    if current_user.role == "dietician": queue_query = queue_query.filter_by(doctor_id=current_user.id)
-    queue = queue_query.order_by(Appointment.scheduled_at).all()
+    queue = doctor_diet_appointments + direct_queue
     latest_visit = Encounter.query.join(Appointment).filter(Appointment.patient_id == selected_id).order_by(Appointment.scheduled_at.desc()).first() if patient else None
     labs = LabOrder.query.filter_by(patient_id=selected_id).order_by(LabOrder.ordered_at.desc()).limit(5).all() if patient else []
     prescription = Prescription.query.filter_by(patient_id=selected_id).order_by(Prescription.created_at.desc()).first() if patient else None
@@ -1857,8 +1874,8 @@ def dietician_workspace():
     active_plan = plans[0] if plans else None; meals = json.loads(active_plan.meals_json or "[]") if active_plan else []
     macro_override = DietPlanMacroOverride.query.filter_by(plan_id=active_plan.id).first() if active_plan else None
     progress = NutritionProgress.query.filter_by(patient_id=selected_id).order_by(NutritionProgress.created_at.desc()).limit(6).all() if patient else []
-    stats = {"today": sum(item.scheduled_at.date() == date.today() for item in queue), "waiting": sum(item.status in ("Checked In", "Waiting") for item in queue), "plans": DietPlan.query.filter(DietPlan.status != "Signed").count(), "followups": len(progress)}
-    return render_template("dietician_workspace.html", patients=patients, patient=patient, assessment=assessment, queue=queue, latest_visit=latest_visit, labs=labs, prescription=prescription, plans=plans, active_plan=active_plan, macro_override=macro_override, meals=meals, progress=progress, stats=stats, foods=FoodMaster.query.filter_by(active=True).order_by(FoodMaster.name).all())
+    stats = {"today": sum(item.scheduled_at.date() == date.today() for item in queue), "waiting": sum(item.status in ("Checked In", "Waiting") for item in queue), "plans": DietPlan.query.filter(DietPlan.status != "Signed").count(), "followups": len(progress), "referred": len(referrals) + len(doctor_diet_appointments), "direct": len(direct_queue)}
+    return render_template("dietician_workspace.html", patients=patients, patient=patient, assessment=assessment, queue=queue, referrals=referrals, doctor_diet_appointments=doctor_diet_appointments, direct_queue=direct_queue, latest_visit=latest_visit, labs=labs, prescription=prescription, plans=plans, active_plan=active_plan, macro_override=macro_override, meals=meals, progress=progress, stats=stats, foods=FoodMaster.query.filter_by(active=True).order_by(FoodMaster.name).all())
 
 @app.route("/dietician", methods=["GET", "POST"])
 @login_required
