@@ -1,0 +1,37 @@
+.admin-persistent-nav {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.admin-persistent-nav > nav {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.admin-persistent-nav > nav .admin-signout {
+  margin-top: auto;
+  border-top: 1px solid rgba(218, 235, 250, .18);
+  border-radius: 0;
+  color: #ffd8d8 !important;
+}
+
+.admin-persistent-nav > nav .admin-signout:hover {
+  background: #9f2f3b !important;
+  color: #fff !important;
+}
+
+@media (max-width: 760px) {
+  .admin-persistent-nav {
+    height: auto;
+    overflow: visible;
+  }
+
+  .admin-persistent-nav > nav { overflow: visible; }
+}
