@@ -146,7 +146,7 @@
     cart.innerHTML = '<div class="rx-cart-head"><div><small>PRESCRIPTION MEDICINES</small><h4>Medicine list <span>0</span></h4></div><p>Add one or more medicines, then review before creating the prescription.</p></div><div class="rx-cart-items"></div><p class="rx-cart-empty">No medicines added yet.</p>';
     const items = cart.querySelector('.rx-cart-items'); const empty = cart.querySelector('.rx-cart-empty'); const count = cart.querySelector('h4 span');
     const add = document.createElement('button'); add.type = 'button'; add.className = 'rx-add-medicine'; add.textContent = '+ Add medicine to prescription';
-    submitPrescription.insertAdjacentElement('beforebegin', cart); submitPrescription.insertAdjacentElement('beforebegin', add);
+    submitPrescription.insertAdjacentElement('beforebegin', cart); cart.insertAdjacentElement('beforebegin', add);
     const updateCart = () => { const rows = items.querySelectorAll('.rx-cart-item'); count.textContent = rows.length; empty.hidden = Boolean(rows.length); };
     const field = (name, value) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; return input; };
     const addMedicine = () => {
@@ -165,7 +165,7 @@
         instructionsControl.value = row.querySelector('[name="instructions"]').value; search.value = master.options[master.selectedIndex].textContent.split(' â€” ')[0];
         row.remove(); updateCart(); master.focus();
       });
-      items.append(row); select.value = ''; master.value = ''; search.value = ''; dosageControl.value = ''; durationControl.value = ''; quantityControl.value = 30; instructionsControl.value = 'After food'; updateCart();
+      items.append(row); select.value = ''; master.value = ''; search.value = ''; dosageControl.value = ''; durationControl.value = ''; quantityControl.value = 30; instructionsControl.value = 'After food'; updateCart(); search.focus({ preventScroll: true });
     };
     add.addEventListener('click', addMedicine);
     form.addEventListener('submit', event => { if (!items.children.length && !select.value) { event.preventDefault(); alert('Add one or more medicines, or select a prescription template.'); } });

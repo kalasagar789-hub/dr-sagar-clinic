@@ -22,11 +22,39 @@ main:has(.consult-page) {
   color: #173853 !important;
 }
 
+.consult-page > .consult-live-queue {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 62px !important;
+  padding: 8px 12px !important;
+}
+
+.consult-page > .consult-live-queue .consult-queue-head {
+  justify-content: flex-start;
+  gap: 9px;
+}
+
+.consult-page > .consult-live-queue .consult-queue-head small { display: none; }
+.consult-page > .consult-live-queue .consult-queue-head h3 { margin: 0; font-size: 14px; }
+.consult-page > .consult-live-queue > p { display: none; }
+.consult-page > .consult-live-queue .queue-count { order: -1; width: 28px; height: 28px; }
+
 .consult-page > .consult-live-queue .consult-queue-list {
   display: flex;
   gap: 9px;
   overflow-x: auto;
 }
+
+.consult-page > .consult-live-queue .consult-queue-row {
+  grid-template-columns: 30px minmax(120px, 1fr);
+  min-width: 190px;
+  padding: 7px 9px;
+}
+
+.consult-page > .consult-live-queue .queue-initial { width: 29px; height: 29px; }
+.consult-page > .consult-live-queue .queue-link { margin: 0; white-space: nowrap; }
 
 .patient-banner {
   min-height: 78px;
@@ -263,6 +291,10 @@ main:has(.consult-page) {
   border-style: solid !important;
   background: #e9f8f3 !important;
   font-size: 13px !important;
+  position: sticky;
+  bottom: 58px;
+  z-index: 3;
+  box-shadow: 0 5px 14px rgba(10, 120, 95, .13);
 }
 
 .rx-cart { margin-top: 14px !important; border-color: #b9ddd5 !important; }
@@ -322,6 +354,9 @@ main:has(.consult-page) {
   .action-footer { border-radius: 0 0 11px 11px; }
   .rx-template-box { display:block; }
   .rx-template-box .rx-template-suggestions { margin-top:10px; }
+  .consult-page > .consult-live-queue { grid-template-columns:1fr; }
+  .consult-page > .consult-live-queue .consult-queue-head { display:none; }
+  .consult-page > .consult-live-queue .queue-link { display:none; }
 }
 
 @media (max-width: 560px) {
