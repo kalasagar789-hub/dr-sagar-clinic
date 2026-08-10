@@ -1,6 +1,6 @@
 (() => {
   const consultPage = document.querySelector('.consult-page');
-  if (false && consultPage && !document.querySelector('.consult-live-queue')) {
+  if (consultPage && !document.querySelector('.consult-live-queue')) {
     const panel = document.createElement('aside');
     panel.className = 'consult-live-queue';
     panel.innerHTML = '<div class="consult-queue-head"><div><small>DOCTOR WORKSPACE</small><h3>Today\'s queue</h3></div><span class="queue-count">0</span></div><p>Select a patient to open their consultation.</p><div class="consult-queue-list"><div class="queue-loading">Loading patients…</div></div><a href="/appointments" class="queue-link">Open appointment queue →</a>';
@@ -129,6 +129,17 @@
   if (dosageControl && durationControl && quantityControl && instructionsControl && submitPrescription && !form.querySelector('.rx-cart')) {
     instructionsControl.hidden = false; instructionsControl.type = 'text'; instructionsControl.placeholder = 'Instruction, e.g. After food';
     [master, dosageControl, durationControl, quantityControl, instructionsControl].forEach(field => field.removeAttribute('name'));
+    const fieldLabels = [
+      [master, 'Medicine', 'medicine'], [dosageControl, 'Dose & timing', 'dose'],
+      [durationControl, 'Duration', 'duration'], [quantityControl, 'Quantity', 'quantity'],
+      [instructionsControl, 'Instructions', 'instructions'],
+    ];
+    fieldLabels.forEach(([control, label, className]) => {
+      if (control.closest('.rx-field')) return;
+      const wrapper = document.createElement('label'); wrapper.className = `rx-field rx-field-${className}`;
+      const caption = document.createElement('span'); caption.textContent = label;
+      control.parentNode.insertBefore(wrapper, control); wrapper.append(caption, control);
+    });
     submitPrescription.textContent = 'Create prescription & preview';
     const cart = document.createElement('section');
     cart.className = 'rx-cart';

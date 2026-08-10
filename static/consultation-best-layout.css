@@ -176,10 +176,18 @@ main:has(.consult-page) {
 
 .rx-builder {
   display: grid !important;
-  grid-template-columns: minmax(210px, 1.5fr) 145px 120px 80px minmax(150px, 1fr) !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
   gap: 9px !important;
   align-items: end;
 }
+
+.rx-builder .rx-field { display:flex;min-width:0;flex-direction:column;gap:6px;color:#405d73;font-size:11px;font-weight:900; }
+.rx-builder .rx-field > select,.rx-builder .rx-field > input { width:100%;margin:0; }
+.rx-builder .rx-field-medicine { grid-column:1/-1; }
+.rx-builder .rx-field-dose { grid-column:span 3; }
+.rx-builder .rx-field-duration { grid-column:span 3; }
+.rx-builder .rx-field-quantity { grid-column:span 2; }
+.rx-builder .rx-field-instructions { grid-column:span 4; }
 
 .rx-builder select,
 .rx-builder input {
@@ -217,12 +225,9 @@ main:has(.consult-page) {
 }
 
 @media (max-width: 1100px) {
-  .rx-builder {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .rx-builder > :first-child,
-  .rx-builder > :last-child { grid-column: 1 / -1; }
+  .rx-builder .rx-field-dose,.rx-builder .rx-field-duration { grid-column:span 6; }
+  .rx-builder .rx-field-quantity { grid-column:span 3; }
+  .rx-builder .rx-field-instructions { grid-column:span 9; }
 }
 
 @media (max-width: 850px) {
@@ -251,5 +256,5 @@ main:has(.consult-page) {
   .pane { padding: 16px !important; }
   .patient-facts { grid-template-columns: repeat(2, 1fr) !important; }
   .rx-builder { grid-template-columns: 1fr !important; }
-  .rx-builder > * { grid-column: auto !important; }
+  .rx-builder > *, .rx-builder .rx-field { grid-column: auto !important; }
 }
