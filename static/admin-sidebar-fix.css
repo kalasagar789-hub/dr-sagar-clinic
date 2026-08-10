@@ -48,9 +48,10 @@
 }
 
 body:has(.laboratory-topbar) .admin-persistent-nav {
-  top: 76px !important;
+  top: 0 !important;
   bottom: 0;
-  height: auto;
+  height: 100vh;
+  min-height: 100vh;
 }
 
 .admin-persistent-nav > nav .admin-signout:hover {
