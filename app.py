@@ -14,7 +14,7 @@ import secrets
 import time
 import smtplib
 from types import SimpleNamespace
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
@@ -59,6 +59,9 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=IS_PRODUCTION or os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
+    SESSION_COOKIE_NAME="clinic_session",
+    SESSION_COOKIE_PATH="/",
+    SESSION_REFRESH_EACH_REQUEST=True,
     PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
     MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     PREFERRED_URL_SCHEME="https" if IS_PRODUCTION else "http",
@@ -98,6 +101,14 @@ def record_auth_failure(identifier):
 
 def clear_auth_failures(identifier):
     AUTH_FAILURES.pop(auth_key(identifier), None)
+
+def strong_password(password):
+    return bool(len(password) >= 12 and re.search(r"[A-Z]", password) and re.search(r"[a-z]", password) and re.search(r"\d", password) and re.search(r"[^A-Za-z0-9]", password))
+
+def csv_safe(value):
+    """Neutralise spreadsheet formulas while retaining readable exported text."""
+    text_value = str(value or "")
+    return "'" + text_value if text_value.lstrip().startswith(("=", "+", "-", "@")) else text_value
 
 def reset_request_allowed(email):
     key = f"{request.remote_addr or 'unknown'}:{email.strip().lower()}"
@@ -182,6 +193,16 @@ def csrf_token():
         session["_csrf_token"] = token
     return token
 
+def safe_referrer(endpoint="dashboard"):
+    """Use a same-origin referrer only; never redirect clinic users to an arbitrary host."""
+    target = request.referrer
+    if not target:
+        return url_for(endpoint)
+    parsed = urlparse(target)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc != request.host:
+        return url_for(endpoint)
+    return target
+
 @app.context_processor
 def inject_security_context():
     return {"csrf_token": csrf_token}
@@ -204,6 +225,9 @@ def add_security_headers(response):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
@@ -213,6 +237,8 @@ def add_security_headers(response):
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     if current_user.is_authenticated:
         response.headers.setdefault("Cache-Control", "no-store, max-age=0")
+        response.headers.setdefault("Pragma", "no-cache")
+        response.headers.setdefault("Expires", "0")
     # Navigation changes must become visible immediately after a clinic update.
     if request.path.endswith(("/static/sidebar-active.js", "/static/security.js", "/static/reset-theme.css", "/static/appointments-enhancements.js", "/static/appointment-booking-pro.css")):
         response.headers["Cache-Control"] = "no-cache, max-age=0"
@@ -644,11 +670,22 @@ def global_search():
         invoices = Invoice.query.filter_by(patient_id=profile.id).order_by(Invoice.created_at.desc()).limit(10).all() if profile else []
     else:
         patients = Patient.query.join(User).filter(or_(User.name.ilike(pattern), User.phone.ilike(pattern), Patient.mrn.ilike(pattern))).order_by(User.name).limit(15).all()
+        if current_user.role == "doctor":
+            assigned_ids = {row[0] for row in db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id).distinct().all()}
+            patients = [item for item in patients if item.id in assigned_ids]
+        elif current_user.role == "dietician":
+            assigned_ids = {row[0] for row in db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id).distinct().all()}
+            assigned_ids.update(row[0] for row in db.session.query(DieticianReferral.patient_id).distinct().all())
+            patients = [item for item in patients if item.id in assigned_ids]
         patient_ids = [item.id for item in patients]
         appointments = Appointment.query.filter(Appointment.patient_id.in_(patient_ids)).order_by(Appointment.scheduled_at.desc()).limit(10).all() if patient_ids else []
-        lab_orders = LabOrder.query.filter(or_(LabOrder.patient_id.in_(patient_ids) if patient_ids else False, LabOrder.test_name.ilike(pattern))).order_by(LabOrder.ordered_at.desc()).limit(10).all()
+        lab_orders = LabOrder.query.filter(LabOrder.patient_id.in_(patient_ids)).order_by(LabOrder.ordered_at.desc()).limit(10).all() if patient_ids else []
         prescriptions = Prescription.query.filter(Prescription.patient_id.in_(patient_ids)).order_by(Prescription.created_at.desc()).limit(10).all() if patient_ids else []
         invoices = Invoice.query.filter(Invoice.patient_id.in_(patient_ids)).order_by(Invoice.created_at.desc()).limit(10).all() if patient_ids else []
+        if current_user.role == "lab": appointments, prescriptions, invoices = [], [], []
+        elif current_user.role == "pharmacy": appointments, lab_orders = [], []
+        elif current_user.role == "reception": prescriptions = []
+        elif current_user.role == "dietician": invoices = []
     return render_template("search_results.html", query=query, patients=patients, appointments=appointments, lab_orders=lab_orders, prescriptions=prescriptions, invoices=invoices)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -664,6 +701,7 @@ def login():
             # A real OTP/SMS provider must be configured before patient access is enabled in production.
             demo_otp = os.getenv("DEMO_PATIENT_OTP", "123456" if not IS_PRODUCTION else "")
             if demo_otp and password == demo_otp:
+                session.clear()
                 session.permanent = True
                 login_user(user, remember=False)
                 clear_auth_failures(identifier)
@@ -676,6 +714,7 @@ def login():
         elif user and user.check_password(password):
             if not user.approved: flash("Your access is awaiting admin approval.", "warning")
             else:
+                session.clear()
                 session.permanent = True
                 login_user(user, remember=False)
                 clear_auth_failures(identifier)
@@ -692,10 +731,11 @@ def forgot_password():
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             return render_template("forgot_password.html", email=email, email_error="Enter a valid registered clinic email address."), 400
         user = User.query.filter(func.lower(User.email) == email, User.role != "patient", User.approved.is_(True)).first()
-        if not user:
-            return render_template("forgot_password.html", email=email, email_error="This email does not match an approved staff account."), 404
         if not reset_request_allowed(email):
             flash("Too many reset requests. Please wait 15 minutes before trying again.", "warning")
+            return redirect(url_for("forgot_password"))
+        if not user:
+            flash("If that approved staff email exists, a reset code has been sent.", "success")
             return redirect(url_for("forgot_password"))
         code = f"{secrets.randbelow(900000) + 100000:06d}"
         try:
@@ -731,7 +771,7 @@ def reset_password():
                 db.session.commit()
             flash("The reset code is invalid, expired, or has already been used.", "danger")
             return redirect(url_for("reset_password"))
-        if password != confirm_password or len(password) < 12 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"\d", password) or not re.search(r"[^A-Za-z0-9]", password):
+        if password != confirm_password or not strong_password(password):
             flash("Use a matching password with at least 12 characters, uppercase, lowercase, number and symbol.", "warning")
             return redirect(url_for("reset_password"))
         user.set_password(password)
@@ -982,6 +1022,7 @@ def update_appointment_attendance(appointment_id):
 @roles("admin", "reception", "doctor")
 def reschedule_appointment(appointment_id):
     appt = db.session.get(Appointment, appointment_id) or abort(404)
+    if current_user.role == "doctor" and appt.doctor_id != current_user.id: abort(403)
     try:
         new_time = datetime.strptime(request.form["scheduled_at"], "%Y-%m-%dT%H:%M")
     except (KeyError, ValueError):
@@ -995,12 +1036,17 @@ def reschedule_appointment(appointment_id):
 @login_required
 @roles("admin", "reception", "doctor", "dietician")
 def appointment_calendar():
-    return render_template("appointment_calendar.html", appointments=Appointment.query.order_by(Appointment.scheduled_at).all())
+    query = Appointment.query.order_by(Appointment.scheduled_at)
+    if current_user.role in {"doctor", "dietician"}: query = query.filter_by(doctor_id=current_user.id)
+    return render_template("appointment_calendar.html", appointments=query.all())
 
 @app.get("/appointments/token-display")
 @login_required
+@roles("admin", "reception", "doctor")
 def token_display():
-    queue = Appointment.query.filter(Appointment.status.in_(["Checked In", "Waiting", "Vitals Pending", "In Consultation"])).order_by(Appointment.scheduled_at).all()
+    query = Appointment.query.filter(Appointment.status.in_(["Checked In", "Waiting", "Vitals Pending", "In Consultation"])).order_by(Appointment.scheduled_at)
+    if current_user.role == "doctor": query = query.filter_by(doctor_id=current_user.id)
+    queue = query.all()
     return render_template("token_display.html", queue=queue)
 
 @app.get("/print/token/<int:appointment_id>")
@@ -1028,8 +1074,11 @@ def daily_queue_print():
 
 @app.get("/api/appointments/live")
 @login_required
+@roles("admin", "reception", "doctor")
 def live_appointments():
-    queue = Appointment.query.filter(Appointment.status.in_(["Checked In", "Waiting", "Vitals Pending", "In Consultation"])).order_by(Appointment.scheduled_at).all()
+    query = Appointment.query.filter(Appointment.status.in_(["Checked In", "Waiting", "Vitals Pending", "In Consultation"])).order_by(Appointment.scheduled_at)
+    if current_user.role in {"doctor", "dietician"}: query = query.filter_by(doctor_id=current_user.id)
+    queue = query.all()
     return jsonify({"updated_at": datetime.utcnow().isoformat(), "queue": [{"id": a.id, "token": a.id, "patient": a.patient.user.name, "status": a.status, "time": a.scheduled_at.strftime("%I:%M %p")} for a in queue]})
 
 @app.get("/patient-flow")
@@ -1058,10 +1107,23 @@ def patient_flow():
 
 @app.get("/patients/<int:patient_id>/journey")
 @login_required
-@roles("admin", "reception", "doctor", "lab", "pharmacy", "dietician")
+@roles("admin", "doctor", "dietician")
 def patient_journey(patient_id):
     patient = db.session.get(Patient, patient_id) or abort(404)
-    patients = Patient.query.order_by(Patient.mrn).all()
+    if current_user.role == "doctor" and not Appointment.query.filter_by(patient_id=patient.id, doctor_id=current_user.id).first(): abort(403)
+    if current_user.role == "dietician":
+        assigned = Appointment.query.filter_by(patient_id=patient.id, doctor_id=current_user.id).first() or DieticianReferral.query.filter_by(patient_id=patient.id).first() or NutritionAssessment.query.filter_by(patient_id=patient.id, dietician_id=current_user.id).first()
+        if not assigned: abort(403)
+    patients_query = Patient.query.order_by(Patient.mrn)
+    if current_user.role == "doctor":
+        assigned_ids = db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id)
+        patients_query = patients_query.filter(Patient.id.in_(assigned_ids))
+    elif current_user.role == "dietician":
+        appointment_ids = {row[0] for row in db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id).distinct().all()}
+        appointment_ids.update(row[0] for row in db.session.query(DieticianReferral.patient_id).distinct().all())
+        appointment_ids.update(row[0] for row in db.session.query(NutritionAssessment.patient_id).filter_by(dietician_id=current_user.id).distinct().all())
+        patients_query = patients_query.filter(Patient.id.in_(appointment_ids or {-1}))
+    patients = patients_query.all()
     appointments = Appointment.query.filter_by(patient_id=patient.id).order_by(Appointment.scheduled_at.desc()).all()
     latest = appointments[0] if appointments else None
     note = latest.encounter if latest else None
@@ -1076,10 +1138,17 @@ def patient_journey(patient_id):
 
 @app.get("/patients")
 @login_required
-@roles("admin", "reception", "doctor", "lab", "pharmacy", "dietician")
+@roles("admin", "doctor", "dietician")
 def patient_overview():
     selected_id = request.args.get("patient_id", type=int)
-    patient = db.session.get(Patient, selected_id) if selected_id else Patient.query.order_by(Patient.mrn).first()
+    query = Patient.query.order_by(Patient.mrn)
+    if current_user.role == "doctor": query = query.filter(Patient.id.in_(db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id)))
+    elif current_user.role == "dietician":
+        allowed_ids = {row[0] for row in db.session.query(Appointment.patient_id).filter_by(doctor_id=current_user.id).distinct().all()}
+        allowed_ids.update(row[0] for row in db.session.query(DieticianReferral.patient_id).distinct().all())
+        allowed_ids.update(row[0] for row in db.session.query(NutritionAssessment.patient_id).filter_by(dietician_id=current_user.id).distinct().all())
+        query = query.filter(Patient.id.in_(allowed_ids or {-1}))
+    patient = query.filter_by(id=selected_id).first() if selected_id else query.first()
     if not patient:
         flash("No patients have been registered yet.", "warning")
         return redirect(url_for("appointments"))
@@ -1295,22 +1364,26 @@ def create_follow_up(appointment_id):
 @login_required
 @roles("doctor", "admin")
 def create_lab_order():
-    order = LabOrder(patient_id=int(request.form["patient_id"]), doctor_id=current_user.id, test_name=request.form["test_name"], status="Ordered", order_source="Doctor advised", referring_provider_name=current_user.name)
-    db.session.add(order); db.session.flush(); db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status="", new_status="Ordered", action="Doctor order received")); db.session.commit(); flash("Lab test ordered and sent to the laboratory queue.", "success"); return redirect(request.referrer or url_for("dashboard"))
+    patient_id = int(request.form["patient_id"])
+    if current_user.role == "doctor" and not Appointment.query.filter_by(patient_id=patient_id, doctor_id=current_user.id).first(): abort(403)
+    order = LabOrder(patient_id=patient_id, doctor_id=current_user.id, test_name=request.form["test_name"], status="Ordered", order_source="Doctor advised", referring_provider_name=current_user.name)
+    db.session.add(order); db.session.flush(); db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status="", new_status="Ordered", action="Doctor order received")); db.session.commit(); flash("Lab test ordered and sent to the laboratory queue.", "success"); return redirect(safe_referrer())
 
 @app.post("/lab-orders/bulk")
 @login_required
 @roles("doctor", "admin")
 def create_lab_orders_bulk():
     tests = [test for test in request.form.getlist("test_name") if test]
+    patient_id = int(request.form["patient_id"])
+    if current_user.role == "doctor" and not Appointment.query.filter_by(patient_id=patient_id, doctor_id=current_user.id).first(): abort(403)
     if not tests:
         flash("Select at least one laboratory test.", "warning")
     else:
         for test in tests:
-            order = LabOrder(patient_id=int(request.form["patient_id"]), doctor_id=current_user.id, test_name=test, status="Ordered", order_source="Doctor advised", referring_provider_name=current_user.name)
+            order = LabOrder(patient_id=patient_id, doctor_id=current_user.id, test_name=test, status="Ordered", order_source="Doctor advised", referring_provider_name=current_user.name)
             db.session.add(order); db.session.flush(); db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status="", new_status="Ordered", action="Doctor order received"))
         db.session.commit(); flash(f"{len(tests)} test(s) sent to the laboratory queue.", "success")
-    return redirect(request.referrer or url_for("dashboard"))
+    return redirect(safe_referrer())
 
 @app.route("/labs", methods=["GET", "POST"])
 @login_required
@@ -1461,6 +1534,7 @@ def lab_inventory_alerts():
 @roles("lab", "admin", "doctor")
 def lab_order_parameters(order_id):
     order = db.session.get(LabOrder, order_id) or abort(404)
+    if current_user.role == "doctor" and order.doctor_id != current_user.id: abort(403)
     parameters = lab_parameters_for(order.test_name)
     existing = {item.parameter_id: item for item in order.parameter_results}
     return jsonify({"parameters": [{"id": item.id, "name": item.name, "unit": item.unit, "reference": item.reference_range, "value": existing[item.id].value if item.id in existing else "", "flag": existing[item.id].flag if item.id in existing else ""} for item in parameters]})
@@ -1603,12 +1677,12 @@ def doctor_review_lab(order_id):
         abort(403)
     if order.status != "Finalised":
         flash("Only finalised laboratory reports can be reviewed by the doctor.", "warning")
-        return redirect(request.referrer or url_for("dashboard"))
+        return redirect(safe_referrer())
     note = request.form.get("review_note", "").strip()
     previous = order.status
     db.session.add(LabOrderAudit(order_id=order.id, actor_id=current_user.id, previous_status=previous, new_status=previous, action="Doctor reviewed report", reason=note or "Reviewed in consultation"))
     db.session.commit(); flash("Laboratory report marked as reviewed in this consultation.", "success")
-    return redirect(request.referrer or url_for("dashboard"))
+    return redirect(safe_referrer())
 
 @app.get("/api/appointments/<int:appointment_id>/lab-reports")
 @login_required
@@ -1644,6 +1718,7 @@ def lab_result_completeness(order_id):
 @roles("lab", "admin", "doctor")
 def lab_ai_summary(order_id):
     order = db.session.get(LabOrder, order_id) or abort(404)
+    if current_user.role == "doctor" and order.doctor_id != current_user.id: abort(403)
     if order.status != "Finalised":
         return jsonify({"ok": False, "message": "AI summaries are available only after a report is finalised."}), 409
     values = [item for item in order.parameter_results if (item.value or "").strip()]
@@ -1659,10 +1734,17 @@ def lab_ai_summary(order_id):
 @login_required
 @roles("doctor", "admin")
 def create_prescription():
+    patient_id = request.form.get("patient_id", type=int)
+    patient = db.session.get(Patient, patient_id) or abort(404)
+    appointment_id = request.form.get("appointment_id", type=int)
+    appointment = db.session.get(Appointment, appointment_id) if appointment_id else None
+    if current_user.role == "doctor":
+        if appointment and (appointment.patient_id != patient.id or appointment.doctor_id != current_user.id): abort(403)
+        if not appointment and not Appointment.query.filter_by(patient_id=patient.id, doctor_id=current_user.id).first(): abort(403)
     med_ids = request.form.getlist("medicine_id")
     dosages, durations = request.form.getlist("dosage"), request.form.getlist("duration")
     quantities, instructions = request.form.getlist("quantity"), request.form.getlist("instructions")
-    rx = Prescription(patient_id=int(request.form["patient_id"]), doctor_id=current_user.id, notes=request.form.get("notes")); db.session.add(rx); db.session.flush()
+    rx = Prescription(patient_id=patient.id, doctor_id=current_user.id, notes=request.form.get("notes")); db.session.add(rx); db.session.flush()
     template_id = request.form.get("template_id")
     if template_id:
         template = db.session.get(PrescriptionTemplate, int(template_id)) or abort(404)
@@ -1687,9 +1769,8 @@ def create_prescription():
             db.session.add(PrescriptionItem(prescription_id=rx.id, medicine_id=medicine.id, dosage=(dosages[i] if i < len(dosages) else "As directed")[:100], duration=(durations[i] if i < len(durations) else "As directed")[:100], quantity=quantity, instructions=(instructions[i] if i < len(instructions) else "")[:250]))
             added += 1
         if not added:
-            db.session.rollback(); flash("Add at least one medicine or choose a prescription template.", "warning"); return redirect(request.referrer or url_for("dashboard"))
+            db.session.rollback(); flash("Add at least one medicine or choose a prescription template.", "warning"); return redirect(safe_referrer())
     db.session.commit()
-    appointment_id = request.form.get("appointment_id", type=int)
     flash("Prescription created and sent to the Pharmacy pending-dispensing queue.", "success")
     if appointment_id:
         return redirect(url_for("encounter", appointment_id=appointment_id, tab="prescription"))
@@ -1857,7 +1938,11 @@ def dietician_workspace():
         direct_queue_query = direct_queue_query.filter_by(doctor_id=current_user.id)
     direct_queue = direct_queue_query.order_by(Appointment.scheduled_at).all()
     queue_patient_ids = [item.patient_id for item in referrals] + [item.patient_id for item in doctor_diet_appointments] + [item.patient_id for item in direct_queue]
+    if current_user.role == "dietician":
+        queue_patient_ids += [row[0] for row in db.session.query(NutritionAssessment.patient_id).filter_by(dietician_id=current_user.id).distinct().all()]
+        patients = [item for item in patients if item.id in set(queue_patient_ids)]
     selected_id = request.form.get("patient_id", type=int) or request.args.get("patient_id", type=int) or (queue_patient_ids[0] if queue_patient_ids else (patients[0].id if patients else None))
+    if current_user.role == "dietician" and selected_id not in set(queue_patient_ids): abort(403)
     patient = db.session.get(Patient, selected_id) if selected_id else None
     assessment = NutritionAssessment.query.filter_by(patient_id=selected_id).order_by(NutritionAssessment.updated_at.desc()).first() if patient else None
     if request.method == "POST" and patient:
@@ -2032,15 +2117,15 @@ def admin_finance_export():
     if report_type in {"all", "revenue"}:
         writer.writerow([]); writer.writerow(["REVENUE", "Date", "Invoice ID", "Service / category", "Amount", "Paid"])
         for invoice in Invoice.query.filter(func.date(Invoice.created_at) >= start, func.date(Invoice.created_at) <= end).order_by(Invoice.created_at).all():
-            writer.writerow(["Revenue", invoice.created_at.strftime("%Y-%m-%d"), invoice.id, invoice.category, f"{invoice.amount:.2f}", "Yes" if invoice.paid else "No"])
+            writer.writerow(["Revenue", invoice.created_at.strftime("%Y-%m-%d"), invoice.id, csv_safe(invoice.category), f"{invoice.amount:.2f}", "Yes" if invoice.paid else "No"])
     if report_type in {"all", "expenses"}:
         writer.writerow([]); writer.writerow(["EXPENSE", "Date", "Category", "Description", "Vendor", "Payment mode", "Amount"])
         for item in Expense.query.filter(Expense.expense_date >= start, Expense.expense_date <= end).order_by(Expense.expense_date).all():
-            writer.writerow(["Expense", item.expense_date.isoformat(), item.category, item.description, item.vendor or "", item.payment_mode, f"{item.amount:.2f}"])
+            writer.writerow(["Expense", item.expense_date.isoformat(), csv_safe(item.category), csv_safe(item.description), csv_safe(item.vendor), csv_safe(item.payment_mode), f"{item.amount:.2f}"])
     if report_type in {"all", "payroll"}:
         writer.writerow([]); writer.writerow(["PAYROLL", "Pay period", "Employee", "Role", "Base", "Allowances", "Deductions", "Net pay", "Status", "Paid date"])
         for item in PayrollRecord.query.filter(PayrollRecord.pay_period >= start.strftime("%Y-%m"), PayrollRecord.pay_period <= end.strftime("%Y-%m")).order_by(PayrollRecord.pay_period, PayrollRecord.id).all():
-            writer.writerow(["Payroll", item.pay_period, item.employee.name, item.employee.role, f"{item.base_salary:.2f}", f"{item.allowances:.2f}", f"{item.deductions:.2f}", f"{item.net_pay:.2f}", item.status, item.paid_on.isoformat() if item.paid_on else ""])
+            writer.writerow(["Payroll", item.pay_period, csv_safe(item.employee.name), csv_safe(item.employee.role), f"{item.base_salary:.2f}", f"{item.allowances:.2f}", f"{item.deductions:.2f}", f"{item.net_pay:.2f}", csv_safe(item.status), item.paid_on.isoformat() if item.paid_on else ""])
     filename = f"clinic-finance-{start.isoformat()}-to-{end.isoformat()}.csv"
     return app.response_class(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -2097,8 +2182,8 @@ def admin_staff():
                 return redirect(url_for("admin_staff"))
             if action == "reset_password":
                 password = request.form.get("new_password") or ""
-                if len(password) < 10 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-                    flash("New temporary password must be at least 10 characters and include a letter and number.", "danger")
+                if not strong_password(password):
+                    flash("Temporary password must have 12+ characters with uppercase, lowercase, number and symbol.", "danger")
                 else:
                     employee.set_password(password); db.session.commit(); flash(f"Temporary password reset for {employee.name}. Share it privately.", "success")
                 return redirect(url_for("admin_staff"))
@@ -2123,8 +2208,8 @@ def admin_staff():
             flash("Enter the employee name, a valid clinic email and a permitted role.", "danger")
         elif phone and not re.fullmatch(r"\d{10}", phone):
             flash("Mobile number must contain 10 digits when provided.", "danger")
-        elif len(password) < 10 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-            flash("Temporary password must be at least 10 characters and include a letter and number.", "danger")
+        elif not strong_password(password):
+            flash("Temporary password must have 12+ characters with uppercase, lowercase, number and symbol.", "danger")
         elif User.query.filter(or_(func.lower(User.email) == email, User.phone == phone if phone else False)).first():
             flash("That clinic email or mobile number is already registered.", "danger")
         else:
@@ -2194,8 +2279,8 @@ def create_staff_account_api():
         return jsonify({"ok": False, "message": "Enter the employee name, a valid clinic email and a permitted role."}), 400
     if phone and not re.fullmatch(r"\d{10}", phone):
         return jsonify({"ok": False, "message": "Mobile number must contain 10 digits when provided."}), 400
-    if len(password) < 10 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
-        return jsonify({"ok": False, "message": "Temporary password must be at least 10 characters and include a letter and number."}), 400
+    if not strong_password(password):
+        return jsonify({"ok": False, "message": "Temporary password must have 12+ characters with uppercase, lowercase, number and symbol."}), 400
     if User.query.filter(or_(func.lower(User.email) == email, User.phone == phone if phone else False)).first():
         return jsonify({"ok": False, "message": "That clinic email or mobile number is already registered."}), 409
     employee = User(name=name[:100], email=email, phone=phone or None, role=role, approved=approved)
@@ -2230,7 +2315,9 @@ def update_staff_reset_email(user_id):
 @login_required
 def prescription_print(prescription_id):
     rx = db.session.get(Prescription, prescription_id) or abort(404)
+    if current_user.role not in {"admin", "doctor", "pharmacy", "patient"}: abort(403)
     if current_user.role == "patient" and rx.patient.user_id != current_user.id: abort(403)
+    if current_user.role == "doctor" and rx.doctor_id != current_user.id: abort(403)
     visit = Encounter.query.join(Appointment).filter(Appointment.patient_id == rx.patient_id, Appointment.doctor_id == rx.doctor_id).order_by(Appointment.scheduled_at.desc()).first()
     patient_age = None
     if rx.patient.dob:
@@ -2243,6 +2330,8 @@ def diet_plan_print(plan_id):
     plan = db.session.get(DietPlan, plan_id) or abort(404)
     if current_user.role == "patient" and plan.patient.user_id != current_user.id: abort(403)
     if current_user.role not in ("admin", "dietician", "patient", "doctor"): abort(403)
+    if current_user.role == "dietician" and plan.dietician_id != current_user.id: abort(403)
+    if current_user.role == "doctor" and not Appointment.query.filter_by(patient_id=plan.patient_id, doctor_id=current_user.id).first(): abort(403)
     assessment = NutritionAssessment.query.filter_by(patient_id=plan.patient_id).order_by(NutritionAssessment.updated_at.desc()).first()
     meals = json.loads(plan.meals_json or "[]")
     macro_override = DietPlanMacroOverride.query.filter_by(plan_id=plan.id).first()
