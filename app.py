@@ -1126,6 +1126,24 @@ def encounter(appointment_id):
     template_data = [{"id": t.id, "name": t.name, "category": t.category, "items": t.items_spec, "advice": t.advice} for t in PrescriptionTemplate.query.order_by(PrescriptionTemplate.category, PrescriptionTemplate.name).all()]
     return render_template("encounter.html", appt=appt, encounter=note, medicines=Medicine.query.order_by(Medicine.name).all(), lab_services=Service.query.filter_by(category="Lab", active=True).order_by(Service.name).all(), prescription_templates=template_data, doctor_queue=queue_query.all(), labs=LabOrder.query.filter_by(patient_id=appt.patient_id).order_by(LabOrder.ordered_at.desc()).all(), prior_prescriptions=Prescription.query.filter_by(patient_id=appt.patient_id).order_by(Prescription.created_at.desc()).all())
 
+@app.post("/api/encounters/<int:appointment_id>/autosave")
+@login_required
+@roles("doctor", "admin")
+def autosave_encounter(appointment_id):
+    appointment = db.session.get(Appointment, appointment_id) or abort(404)
+    if current_user.role == "doctor" and appointment.doctor_id != current_user.id: abort(403)
+    data = request.get_json(silent=True) or {}
+    note = appointment.encounter or Encounter(appointment_id=appointment.id)
+    for field in ("history", "diagnosis", "bp", "pulse", "temperature", "notes"):
+        if field in data: setattr(note, field, str(data.get(field) or "")[:10000])
+    for field in ("weight", "height"):
+        if field in data:
+            try: setattr(note, field, float(data[field]) if data[field] not in (None, "") else None)
+            except (TypeError, ValueError): return jsonify({"ok": False, "message": f"Invalid {field}."}), 400
+    appointment.status = "In Consultation" if appointment.status not in {"Consulted", "Cancelled"} else appointment.status
+    db.session.add(note); db.session.commit()
+    return jsonify({"ok": True, "saved_at": datetime.utcnow().strftime("%I:%M:%S %p")})
+
 @app.get("/api/consultation-queue")
 @login_required
 @roles("doctor", "admin")
@@ -2117,6 +2135,24 @@ def admin_staff():
             return redirect(url_for("admin_staff"))
     staff = User.query.filter(User.role != "patient").order_by(User.role, User.name).all()
     return render_template("admin_staff.html", staff=staff)
+
+@app.get("/admin/audit")
+@login_required
+@roles("admin")
+def admin_audit():
+    events = []
+    for item in AppointmentLog.query.order_by(AppointmentLog.created_at.desc()).limit(150).all():
+        events.append({"time": item.created_at, "module": "Appointments", "actor": item.actor.name, "action": item.action, "subject": item.appointment.patient.user.name, "detail": item.reason or ""})
+    for item in ConsultationAudit.query.order_by(ConsultationAudit.created_at.desc()).limit(150).all():
+        events.append({"time": item.created_at, "module": "Consultation", "actor": item.actor.name, "action": item.action, "subject": item.appointment.patient.user.name, "detail": item.details or ""})
+    for item in LabOrderAudit.query.order_by(LabOrderAudit.created_at.desc()).limit(150).all():
+        events.append({"time": item.created_at, "module": "Laboratory", "actor": item.actor.name, "action": item.action, "subject": item.order.patient.user.name, "detail": item.reason or f"{item.previous_status or 'New'} → {item.new_status or item.order.status}"})
+    for item in LabInventoryLog.query.order_by(LabInventoryLog.created_at.desc()).limit(100).all():
+        events.append({"time": item.created_at, "module": "Lab inventory", "actor": item.actor.name, "action": item.action, "subject": item.item.name, "detail": item.note or f"Quantity change: {item.change:g}"})
+    events.sort(key=lambda event: event["time"] or datetime.min, reverse=True)
+    module = request.args.get("module", "All")
+    if module != "All": events = [event for event in events if event["module"] == module]
+    return render_template("admin_audit.html", events=events[:300], selected_module=module)
 
 @app.get("/api/providers")
 @login_required

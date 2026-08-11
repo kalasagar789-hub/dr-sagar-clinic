@@ -31,7 +31,13 @@
   if (!forms.length) return;
   const key = `clinic-consultation-draft-${appointment}`; let dirty = false; let timer;
   const fields = forms.flatMap(form => [...form.querySelectorAll('input:not([type="hidden"]),select,textarea')]).filter(field => field.name);
-  const save = () => { const values = {}; fields.forEach(field => { values[field.name] = field.type === 'checkbox' ? field.checked : field.value; }); localStorage.setItem(key, JSON.stringify(values)); dirty = true; };
+  let saveState = document.querySelector('.consultation-autosave-state');
+  if (!saveState) { saveState = document.createElement('span'); saveState.className = 'consultation-autosave-state'; saveState.setAttribute('role','status'); saveState.textContent = 'All changes saved'; document.querySelector('.work-card .pane-head, .work-card>header')?.append(saveState); }
+  const save = async () => {
+    const values = {}; fields.forEach(field => { values[field.name] = field.type === 'checkbox' ? field.checked : field.value; }); localStorage.setItem(key, JSON.stringify(values)); dirty = true; saveState.textContent = 'Saving clinical draft…';
+    try { const response = await fetch(`/api/encounters/${appointment}/autosave`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)}); const result = await response.json(); if (!result.ok) throw new Error(); dirty = false; saveState.textContent = `Saved securely · ${result.saved_at}`; }
+    catch (_) { saveState.textContent = 'Saved on this device · server unavailable'; }
+  };
   const saved = localStorage.getItem(key);
   if (saved) { try { const values = JSON.parse(saved); fields.forEach(field => { if (!(field.name in values) || field.value) return; if (field.type === 'checkbox') field.checked = values[field.name]; else field.value = values[field.name]; }); } catch (_) {} }
   fields.forEach(field => field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(save, 500); }));

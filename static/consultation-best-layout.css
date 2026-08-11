@@ -442,3 +442,4 @@ body.rx-screen-open { overflow: hidden; }
   .rx-builder > *, .rx-builder .rx-field { grid-column: auto !important; }
   .pane[data-pane="prescription"] .two-col > .section-box:last-child { grid-template-columns:1fr; }
 }
+.consultation-autosave-state{margin-left:auto;padding:6px 9px;border-radius:14px;background:#e8f7f2;color:#14745f;font-size:10px;font-weight:800;white-space:nowrap}
