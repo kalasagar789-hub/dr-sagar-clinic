@@ -884,7 +884,12 @@ def appointments():
             patient_id = int(request.form["patient_id"])
         reason = request.form.get("reason")
         if booking_type == "followup": reason = f"Follow-up ({request.form.get('followup_interval', '30')} days): {reason or 'Clinical review'}"
-        appt = Appointment(patient_id=patient_id, doctor_id=int(request.form["doctor_id"]), scheduled_at=datetime.strptime(request.form["scheduled_at"], "%Y-%m-%dT%H:%M"), mode=request.form["mode"], reason=reason, consultation_fee=float(request.form["fee"]))
+        doctor_id = int(request.form["doctor_id"]); scheduled_at = datetime.strptime(request.form["scheduled_at"], "%Y-%m-%dT%H:%M")
+        conflict = Appointment.query.filter(Appointment.doctor_id == doctor_id, Appointment.scheduled_at == scheduled_at, ~Appointment.status.in_(["Cancelled", "No Show"])).first()
+        if conflict:
+            flash("This provider already has an appointment at the selected date and time. Choose another slot.", "danger")
+            return redirect(url_for("appointments") + "#new-appointment")
+        appt = Appointment(patient_id=patient_id, doctor_id=doctor_id, scheduled_at=scheduled_at, mode=request.form["mode"], reason=reason, consultation_fee=float(request.form["fee"]))
         db.session.add(appt); db.session.flush()
         db.session.add(AppointmentLog(appointment_id=appt.id, actor_id=current_user.id, action="Appointment registered", reason=f"{appt.mode} · {appt.scheduled_at.strftime('%d %b %Y, %I:%M %p')}"))
         db.session.commit()
@@ -2062,6 +2067,34 @@ def admin_finance_insights():
 def admin_staff():
     allowed_roles = {"doctor", "reception", "lab", "pharmacy", "dietician"}
     if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action in {"edit", "toggle", "reset_password"}:
+            employee = db.session.get(User, request.form.get("user_id", type=int)) or abort(404)
+            if employee.role == "patient" or employee.id == current_user.id:
+                flash("This staff account cannot be changed from this screen.", "danger")
+                return redirect(url_for("admin_staff"))
+            if action == "toggle":
+                employee.approved = not employee.approved; db.session.commit()
+                flash(f"{employee.name}'s login is now {'active' if employee.approved else 'disabled'}.", "success")
+                return redirect(url_for("admin_staff"))
+            if action == "reset_password":
+                password = request.form.get("new_password") or ""
+                if len(password) < 10 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+                    flash("New temporary password must be at least 10 characters and include a letter and number.", "danger")
+                else:
+                    employee.set_password(password); db.session.commit(); flash(f"Temporary password reset for {employee.name}. Share it privately.", "success")
+                return redirect(url_for("admin_staff"))
+            name = (request.form.get("name") or "").strip(); email = (request.form.get("email") or "").strip().lower()
+            phone = re.sub(r"\D", "", request.form.get("phone") or ""); role = request.form.get("role") or ""
+            duplicate = User.query.filter(User.id != employee.id, or_(func.lower(User.email) == email, User.phone == phone if phone else False)).first()
+            if len(name) < 2 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or role not in allowed_roles:
+                flash("Enter a valid employee name, clinic email and role.", "danger")
+            elif phone and not re.fullmatch(r"\d{10}", phone): flash("Mobile number must contain 10 digits when provided.", "danger")
+            elif duplicate: flash("That clinic email or mobile number is already registered.", "danger")
+            else:
+                employee.name, employee.email, employee.phone, employee.role = name[:100], email, phone or None, role
+                db.session.commit(); flash(f"{employee.name}'s staff profile was updated.", "success")
+            return redirect(url_for("admin_staff"))
         name = (request.form.get("name") or "").strip()
         email = (request.form.get("email") or "").strip().lower()
         phone = re.sub(r"\D", "", request.form.get("phone") or "")
@@ -2084,6 +2117,30 @@ def admin_staff():
             return redirect(url_for("admin_staff"))
     staff = User.query.filter(User.role != "patient").order_by(User.role, User.name).all()
     return render_template("admin_staff.html", staff=staff)
+
+@app.get("/api/providers")
+@login_required
+@roles("admin", "reception", "doctor")
+def active_providers():
+    providers = User.query.filter(User.role.in_(["doctor", "dietician"]), User.approved.is_(True)).order_by(User.name).all()
+    return jsonify({"providers": [{"id": item.id, "name": item.name, "role": item.role} for item in providers]})
+
+@app.post("/appointments/<int:appointment_id>/reassign")
+@login_required
+@roles("admin", "reception")
+def reassign_appointment(appointment_id):
+    appointment = db.session.get(Appointment, appointment_id) or abort(404)
+    if appointment.status in {"Consulted", "Cancelled", "No Show"}:
+        return jsonify({"ok": False, "message": "Completed or cancelled appointments cannot be reassigned."}), 409
+    provider = db.session.get(User, request.form.get("doctor_id", type=int))
+    if not provider or provider.role not in {"doctor", "dietician"} or not provider.approved:
+        return jsonify({"ok": False, "message": "Choose an active doctor or dietician."}), 400
+    conflict = Appointment.query.filter(Appointment.doctor_id == provider.id, Appointment.scheduled_at == appointment.scheduled_at, Appointment.id != appointment.id, ~Appointment.status.in_(["Cancelled", "No Show"])).first()
+    if conflict: return jsonify({"ok": False, "message": f"{provider.name} already has an appointment at this time."}), 409
+    previous = appointment.doctor.name; appointment.doctor_id = provider.id
+    db.session.add(AppointmentLog(appointment_id=appointment.id, actor_id=current_user.id, action="Provider reassigned", reason=f"{previous} → {provider.name}"))
+    db.session.commit()
+    return jsonify({"ok": True, "message": f"Appointment reassigned to {provider.name}.", "provider": provider.name})
 
 @app.post("/api/admin/staff")
 @login_required

@@ -23,6 +23,22 @@
   });
 })();
 
+/* Protect unfinished clinical documentation on this device. */
+(() => {
+  const appointment = location.pathname.match(/\/encounter\/(\d+)/)?.[1];
+  if (!appointment) return;
+  const forms = [...document.querySelectorAll('.work-card form, [data-pane] form')].filter(form => !form.closest('[data-pane="prescription"]'));
+  if (!forms.length) return;
+  const key = `clinic-consultation-draft-${appointment}`; let dirty = false; let timer;
+  const fields = forms.flatMap(form => [...form.querySelectorAll('input:not([type="hidden"]),select,textarea')]).filter(field => field.name);
+  const save = () => { const values = {}; fields.forEach(field => { values[field.name] = field.type === 'checkbox' ? field.checked : field.value; }); localStorage.setItem(key, JSON.stringify(values)); dirty = true; };
+  const saved = localStorage.getItem(key);
+  if (saved) { try { const values = JSON.parse(saved); fields.forEach(field => { if (!(field.name in values) || field.value) return; if (field.type === 'checkbox') field.checked = values[field.name]; else field.value = values[field.name]; }); } catch (_) {} }
+  fields.forEach(field => field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(save, 500); }));
+  forms.forEach(form => form.addEventListener('submit', () => { dirty = false; localStorage.removeItem(key); }));
+  addEventListener('beforeunload', event => { if (!dirty) return; event.preventDefault(); event.returnValue = ''; });
+})();
+
 (() => {
   const facts = [...document.querySelectorAll('.patient-facts > div')];
   const allergyText = facts.find(item => item.querySelector('span')?.textContent.trim() === 'Allergies')?.querySelector('b')?.textContent.trim();

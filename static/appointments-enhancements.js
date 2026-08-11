@@ -30,6 +30,20 @@
       reminder.title = 'Open a pre-filled follow-up reminder for a no-show patient';
     }
     if (!['Consulted', 'Cancelled', 'No Show'].includes(status)) {
+      if (['admin', 'reception'].includes(document.body.dataset.role)) {
+        const changeDoctor = document.createElement('button'); changeDoctor.type = 'button'; changeDoctor.className = 'reassign-provider'; changeDoctor.textContent = 'Change doctor';
+        changeDoctor.addEventListener('click', async () => {
+          const response = await fetch('/api/providers'); const data = await response.json();
+          if (!data.providers?.length) return toast('No active providers are available.', 'warning');
+          const choices = data.providers.map((provider, index) => `${index + 1}. ${provider.name} (${provider.role})`).join('\n');
+          const selected = Number(prompt(`Choose provider number:\n${choices}`));
+          if (!selected || !data.providers[selected - 1]) return;
+          const body = new URLSearchParams({ doctor_id: data.providers[selected - 1].id });
+          const result = await fetch(`/appointments/${match[1]}/reassign`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }).then(item => item.json());
+          if (!result.ok) return toast(result.message || 'Unable to change provider.', 'warning');
+          toast(result.message, 'success'); setTimeout(() => location.reload(), 800);
+        }); actions.append(changeDoctor);
+      }
       [['Cancel', 'cancel'], ['No show', 'no_show']].forEach(([label, action]) => {
         const button = document.createElement('button');
         button.type = 'button';
