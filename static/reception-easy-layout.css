@@ -1,0 +1,51 @@
+/* Compact reception workspace for desktop screens. */
+@media (min-width: 951px) {
+  body:has(.appointment-head) main { max-width: none !important; padding: 18px 24px 30px !important; }
+  body:has(.appointment-head) main > header { min-height: auto !important; margin-bottom: 10px !important; }
+  .appointment-head { margin-bottom: 12px !important; }
+  .appointment-head > div:first-child span { display: none; }
+  .appointment-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .appointment-head .button { min-height: 38px; padding: 9px 13px !important; }
+  .appointment-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 9px !important; margin: 0 0 10px !important; }
+  .appointment-kpis > div { min-height: 72px !important; padding: 10px 13px !important; border-radius: 10px !important; }
+  .appointment-kpis b { display: inline-block !important; margin: 3px 8px 0 0 !important; font-size: 20px !important; }
+  .appointment-kpis small { display: inline !important; font-size: 10px !important; }
+  .appointment-insights, .reception-flow, .booking-progress { display: none !important; }
+  .booking-card { margin: 0 0 12px !important; border-radius: 13px !important; }
+  .booking-title { min-height: 62px; padding: 12px 18px !important; align-items: center !important; }
+  .booking-title h2 { font-size: 19px !important; }
+  .booking-title .eyebrow { margin-bottom: 3px !important; }
+  .booking-title .form-note { margin-top: 3px !important; font-size: 11px !important; }
+  .secure-note { margin: 0 !important; padding: 7px 10px !important; }
+  .booking-tabs { grid-template-columns: repeat(3, minmax(0, 220px)) !important; justify-content: start; gap: 7px !important; padding: 9px 18px !important; }
+  .booking-tabs button { min-height: 38px !important; padding: 7px 10px !important; }
+  .booking-tab-icon { width: 22px !important; height: 22px !important; }
+  .booking-form { grid-template-columns: minmax(270px, 1.15fr) minmax(0, 3fr) auto !important; gap: 10px !important; padding: 12px 18px 14px !important; align-items: end !important; }
+  .booking-existing, .booking-followup { grid-column: 1 !important; padding: 10px 12px !important; align-self: stretch; }
+  .booking-new { grid-column: 1 / -1 !important; padding: 10px 12px !important; }
+  .booking-section-heading, .booking-existing .helper { display: none !important; }
+  .booking-form input, .booking-form select { min-height: 38px !important; margin-top: 4px !important; padding-top: 7px !important; padding-bottom: 7px !important; }
+  .booking-visit-details { grid-column: 2 !important; grid-template-columns: 1.15fr 1.1fr .9fr .7fr 1.7fr !important; gap: 9px !important; padding: 10px 12px !important; align-self: stretch; }
+  .booking-visit-details::before { content: "Visit details"; grid-column: 1 / -1; font-size: 12px !important; line-height: 1; }
+  .booking-visit-details .full { grid-column: 5 !important; }
+  .booking-form > button { grid-column: 3 !important; min-width: 180px !important; min-height: 44px !important; margin-bottom: 1px !important; padding: 10px 14px !important; }
+  .patient-fields { grid-template-columns: 2fr .65fr .8fr 1fr 1fr 1.15fr 1.2fr !important; gap: 9px !important; }
+  .patient-fields .full { grid-column: auto !important; }
+  .appointment-queue { margin: 0 !important; padding: 14px 16px !important; border-radius: 13px !important; }
+  .appointment-queue table { font-size: 11px !important; }
+  .appointment-queue th, .appointment-queue td { padding: 8px 7px !important; }
+  .appointment-actions { flex-wrap: wrap !important; }
+  .appointment-actions a, .appointment-actions button { min-height: 30px !important; padding: 6px 8px !important; }
+}
+
+@media (min-width: 951px) and (max-width: 1180px) {
+  .booking-form { grid-template-columns: 1fr 2fr !important; }
+  .booking-form > button { grid-column: 1 / -1 !important; justify-self: stretch !important; width: 100% !important; }
+  .booking-visit-details { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .booking-visit-details .full { grid-column: 1 / -1 !important; }
+}
+
+@media (max-width: 950px) {
+  .appointment-head-actions { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 3px; }
+  .appointment-head-actions .button { flex: 0 0 auto; }
+}

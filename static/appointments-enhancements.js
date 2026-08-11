@@ -1,8 +1,13 @@
 (() => {
   if (!document.querySelector('link[href*="appointment-booking-pro.css"]')) {
     const styles = document.createElement('link');
-    styles.rel = 'stylesheet'; styles.href = '/static/appointment-booking-pro.css?v=20260806';
+    styles.rel = 'stylesheet'; styles.href = '/static/appointment-booking-pro.css?v=20260812-1';
     document.head.append(styles);
+  }
+  if (!document.querySelector('link[href*="reception-easy-layout.css"]')) {
+    const layout = document.createElement('link');
+    layout.rel = 'stylesheet'; layout.href = '/static/reception-easy-layout.css?v=20260812-1';
+    document.head.append(layout);
   }
   document.querySelectorAll('.appointment-actions').forEach((actions) => {
     const encounter = [...actions.querySelectorAll('a')].find(link => /\/encounter\/(\d+)/.test(link.getAttribute('href') || ''));
@@ -63,13 +68,20 @@
     }
   });
   const deskHead = document.querySelector('.appointment-head');
+  let deskActions = deskHead?.querySelector('.appointment-head-actions');
+  if (deskHead && !deskActions) {
+    deskActions = document.createElement('div');
+    deskActions.className = 'appointment-head-actions';
+    deskHead.querySelectorAll(':scope > .button').forEach(button => deskActions.append(button));
+    deskHead.append(deskActions);
+  }
   if (deskHead && !document.querySelector('#lab-walkin-link')) {
     const link = document.createElement('a');
     link.id = 'lab-walkin-link';
     link.className = 'button';
     link.href = '/reception/lab-walkin';
     link.textContent = '⚗ Lab-only walk-in';
-    deskHead.querySelector('div:last-child')?.append(link) || deskHead.append(link);
+    deskActions.append(link);
   }
   if (deskHead && !document.querySelector('#daily-queue-link')) {
     const link = document.createElement('a');
@@ -79,7 +91,7 @@
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = 'Print daily queue';
-    deskHead.append(link);
+    deskActions.append(link);
   }
   const form = document.querySelector('.booking-form');
   const storageKey = 'careflow-appointment-draft-v1';
